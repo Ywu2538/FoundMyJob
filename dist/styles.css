@@ -26,3 +26,6 @@
 .dialog-content label{display:flex;flex-direction:column;gap:7px;margin:12px 0;font-size:13px}
 .dialog-content textarea{width:100%}
 .application-card{overflow-wrap:anywhere}
+
+.sidebar{overflow-y:auto;overscroll-behavior:contain}
+.sidebar>*{flex-shrink:0}

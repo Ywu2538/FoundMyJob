@@ -163,7 +163,7 @@ function importJob() {modal('导入真实岗位',`<form id="import-job-form" cla
 
 const actions={
  'nav':el=>go(el.dataset.route),
- 'menu':()=>{ui.mobileMenu=!ui.mobileMenu;render();},
+ 'menu':()=>{ui.mobileMenu=!ui.mobileMenu;$('.sidebar').classList.toggle('is-open',ui.mobileMenu);},
  'notifications':()=>modal('本地使用流程','<div class="dialog-content"><p>填写个人档案 → 同步或导入真实岗位 → 选择 AI 服务 → 生成、编辑与审核简历 → 导出并自行投递。</p><p>档案与简历保存在本机数据库。只有点击生成并确认后，才会将档案发送给所选 AI 服务。</p></div>'),
  'saved-filter':el=>{ui.savedOnly=el.dataset.value==='saved';render();},
  'clear-filters':()=>{Object.assign(ui,{query:'',region:'',track:'',work:'',savedOnly:false});render();},
