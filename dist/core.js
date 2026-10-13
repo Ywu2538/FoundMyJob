@@ -31,12 +31,12 @@ export function matchJob(job, profile) {
   const sameTrack = job.track === profile.track;
   const text = (profile.target || '').toLowerCase();
   const role = (job.category==='设计' && /设计|design/.test(text)) || (job.category==='产品' && /产品|product/.test(text)) || (job.category==='数据' && /数据|data/.test(text)) || (job.category==='研发' && /研发|开发|engineer/.test(text));
-  const score = Math.min(98, Math.round(30 + matched.length/job.tags.length*45 + (sameTrack?15:0) + (role?8:0)));
+  const score = Math.min(98, Math.round((job.tags.length?matched.length/job.tags.length*70:0) + (sameTrack?15:0) + (role?13:0)));
   return { score, matched, missing, sameTrack };
 }
 export function filterJobs(jobs, profile, filters={}) {
   const query = (filters.query || '').trim().toLowerCase();
-  return jobs.filter(j => (!query || [j.title,j.company,j.location,...j.tags].join(' ').toLowerCase().includes(query)) && (!filters.region || j.region===filters.region) && (!filters.track || j.track===filters.track) && (!filters.work || j.work===filters.work) && (!filters.savedOnly || filters.saved?.includes(j.id))).sort((a,b)=> filters.sort==='new' ? a.age-b.age : matchJob(b,profile).score-matchJob(a,profile).score);
+  return jobs.filter(j => (!query || [j.title,j.company,j.location,...j.tags].join(' ').toLowerCase().includes(query)) && (!filters.region || j.region===filters.region) && (!filters.track || j.track===filters.track) && (!filters.work || j.work===filters.work) && (!filters.savedOnly || filters.saved?.includes(j.id))).sort((a,b)=> filters.sort==='new' ? (Date.parse(b.syncedAt)||0)-(Date.parse(a.syncedAt)||0)||a.age-b.age : matchJob(b,profile).score-matchJob(a,profile).score);
 }
 export function makeDemoResume(profile, job, language='zh') {
   if (!profile.name?.trim() || !profile.education?.trim() || (!profile.experience?.trim() && !profile.projects?.trim())) throw new Error('请先填写姓名、教育经历，以及至少一项工作经历或项目经历。');

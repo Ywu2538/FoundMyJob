@@ -13,3 +13,16 @@
 @media(max-width:760px){.page-title p{font-size:11px}.banner-copy p{font-size:11px}.stat small{font-size:10px}.stat-label{font-size:11px}.plans-grid .plan-card>p,.plans-grid .plan-card li{font-size:11px}.job-title{font-size:14px}.tags>span{font-size:10px}.job-meta{font-size:10px}.transactions table{font-size:11px}.app-footer>span:last-child{display:none}}
 @media(max-width:430px){.job-title{font-size:16px}.job-meta{font-size:11px}.salary{font-size:15px}.company-name{font-size:13px}.stat small{font-size:9px}.stat-label{font-size:10px}.filter-bar input,.filter-bar select{font-size:11px}.plan-card li{font-size:10px}.plan-price small{font-size:10px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+/* Local app data controls */
+.inline-check{display:flex!important;align-items:flex-start;gap:8px;line-height:1.7;font-size:13px}
+.inline-check input{width:16px!important;height:16px;flex:0 0 16px;margin-top:5px}
+.generation-controls{flex-wrap:wrap}
+.generation-controls .inline-check{flex-basis:100%}
+.job-description{white-space:pre-wrap;max-height:360px;overflow:auto;overflow-wrap:anywhere}
+.job-card .job-title{overflow-wrap:anywhere}
+.job-card .job-meta{flex-wrap:wrap}
+.job-card .company-name{overflow-wrap:anywhere}
+.settings-panel label{margin-top:14px}
+.dialog-content label{display:flex;flex-direction:column;gap:7px;margin:12px 0;font-size:13px}
+.dialog-content textarea{width:100%}
+.application-card{overflow-wrap:anywhere}

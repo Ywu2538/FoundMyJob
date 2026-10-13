@@ -3,6 +3,11 @@
 !.env.example
 node_modules/
 .runtime/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+.cursor/
 .cursor-install.ps1
 *.log
 artifacts/

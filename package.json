@@ -1,14 +1,15 @@
 {
   "name": "foundmyjob",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "A bilingual job discovery and tailored resume demo with an optional local Cursor bridge.",
-  "engines": { "node": ">=22" },
+  "description": "Local job discovery and tailored resumes with SQLite, Cursor and isolated BYOK providers.",
+  "engines": { "node": ">=22.13" },
   "scripts": {
-    "dev": "node server/index.mjs",
-    "start": "node server/index.mjs",
+    "dev": "node --env-file-if-exists=.env.local server/index.mjs",
+    "start": "node --env-file-if-exists=.env.local server/index.mjs",
+    "cursor:login": "node scripts/login-cursor.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check dist/app.js && node --check dist/core.js && node --check server/index.mjs && node --check server/cursor.mjs"
+    "check": "node --check dist/app.js && node --check dist/core.js && node --check server/index.mjs && node --check server/db.mjs && node --check server/jobs.mjs && node --check server/providers.mjs && node --check server/cursor.mjs"
   }
 }
