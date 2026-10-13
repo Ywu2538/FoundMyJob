@@ -7,5 +7,5 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-node --env-file-if-exists=.env.local scripts/start-local.mjs
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start-background.ps1"
 if errorlevel 1 pause

@@ -10,7 +10,9 @@
 npm start
 ```
 
-Windows 可双击 `Start-FoundMyJob.cmd`。打开 <http://127.0.0.1:4173>，保留启动窗口；关闭窗口或 Ctrl+C 会停止服务。SQLite 在部分 Node 版本显示 ExperimentalWarning，不影响当前运行。
+Windows 可双击 `Start-FoundMyJob.cmd`。它会独立在后台启动服务并打开 <http://127.0.0.1:4173>；关闭启动窗口或浏览器不会停止服务。重复双击会复用已有服务。需要停止时双击 `Stop-FoundMyJob.cmd`；有简历正在生成时会提示先等待完成。电脑重启后再次双击启动即可，不修改系统开机启动项。
+
+`npm start` 仍是前台运行方式，需要保留终端，Ctrl+C 停止。后台日志在 `.runtime/background-server.log`。SQLite 在部分 Node 版本显示 ExperimentalWarning，不影响当前运行。
 
 本版本需要后端，不能只把 `dist/` 上传到静态托管。仅监听 `127.0.0.1`，用于**单用户本机**；不支持公开暴露、反向代理或多人共享实例。
 
