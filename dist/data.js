@@ -1,0 +1,31 @@
+export const DEFAULT_PROFILE = {
+  name: '林予安', email: 'yian.lin@example.com', phone: '', location: 'Toronto / 上海',
+  track: 'campus', target: '产品经理 / Product Designer', language: 'zh',
+  skills: ['Figma', '用户研究', 'SQL', '数据分析', '原型设计', 'Python'],
+  education: 'Western University · 信息系统硕士\n2025.09 — 2027.06（预计）\n相关课程：人机交互、数据分析、产品管理',
+  experience: '校园职业发展平台 · 产品实习生\n2026.05 — 2026.08\n访谈 12 名在校学生，整理求职流程中的问题，并参与设计岗位收藏与投递追踪功能。使用 Figma 制作交互原型，协助团队完成两轮可用性测试。',
+  projects: 'StudyTogether · 校园学习搭子项目\n负责用户研究与产品原型，使用 SQL 分析匿名问卷数据，整理需求优先级。与 3 位同学合作完成课程项目并展示。',
+  preferences: '希望从事产品设计或产品管理相关工作；优先加拿大和中国，可接受混合办公。',
+};
+
+// Every listing is an authored demo scenario, not a fetched or verified vacancy.
+export const JOBS = [
+  { id:'j1', company:'Notion', logo:'N', color:'#18191b', bg:'#f2f2f0', title:'Associate Product Designer', location:'San Francisco, US', region:'na', work:'混合办公', track:'campus', salary:'$95k – $125k / 年', currency:'USD', tags:['Figma','用户研究','原型设计'], category:'设计', description:'参与协作工具的端到端产品设计，理解用户工作流，与产品经理及工程团队共同打磨简洁的使用体验。', requirements:['具备交互设计与视觉设计基础，能够清晰表达设计决策。','熟悉 Figma，能够独立完成原型并参与用户研究。','欢迎应届毕业生，需要提供课程或个人项目作品集。'], url:'https://www.notion.com/careers', age:1 },
+  { id:'j2', company:'腾讯', logo:'腾', color:'#2475d8', bg:'#eaf3ff', title:'产品经理 · 2027 校园招聘', location:'深圳，中国', region:'cn', work:'现场办公', track:'campus', salary:'¥20k – ¥30k / 月', currency:'CNY', tags:['用户研究','数据分析','原型设计'], category:'产品', description:'参与面向用户的互联网产品规划，分析使用行为，协同设计和研发推进功能迭代。', requirements:['2027 届应届毕业生，专业不限。','能够从用户反馈和数据中发现问题。','具备沟通协作能力，有产品相关项目或实习经历。'], url:'https://careers.tencent.com/', age:2 },
+  { id:'j3', company:'Shopify', logo:'S', color:'#50852f', bg:'#eff6e9', title:'Junior Data Analyst', location:'Toronto, Canada', region:'na', work:'远程办公', track:'campus', salary:'CA$70k – CA$95k / 年', currency:'CAD', tags:['SQL','Python','数据分析'], category:'数据', description:'通过商家与产品数据发现增长机会，将分析结果转化为清晰的业务建议。', requirements:['掌握 SQL 查询与基础统计方法。','能够使用 Python 清洗数据并表达分析结果。','欢迎有数据分析课程或项目经验的应届毕业生。'], url:'https://www.shopify.com/careers', age:3 },
+  { id:'j4', company:'字节跳动', logo:'字', color:'#1a9caf', bg:'#eaf9fb', title:'用户体验设计师', location:'上海，中国', region:'cn', work:'现场办公', track:'campus', salary:'¥22k – ¥35k / 月', currency:'CNY', tags:['Figma','原型设计','用户研究'], category:'设计', description:'从真实用户场景出发，参与移动端产品的交互设计与体验优化。', requirements:['设计或相关专业应届毕业生。','具备用户研究、信息架构与交互原型能力。','能够通过作品集展示解决问题的过程。'], url:'https://jobs.bytedance.com/', age:4 },
+  { id:'j5', company:'Wealthsimple', logo:'W', color:'#76694a', bg:'#f5f0e5', title:'Product Operations Associate', location:'Toronto, Canada', region:'na', work:'混合办公', track:'campus', salary:'CA$65k – CA$85k / 年', currency:'CAD', tags:['数据分析','用户研究','沟通协作'], category:'运营', description:'支持产品日常运营，归纳用户反馈，建立跨团队协作和数据复盘机制。', requirements:['擅长结构化表达和跨团队沟通。','具备基本的数据分析与表格处理能力。','能够将用户反馈整理成可执行的产品建议。'], url:'https://www.wealthsimple.com/en-ca/careers', age:5 },
+  { id:'j6', company:'小红书', logo:'小', color:'#e64e63', bg:'#ffedf0', title:'数据分析师 · 商业产品', location:'北京，中国', region:'cn', work:'现场办公', track:'experienced', salary:'¥25k – ¥40k / 月', currency:'CNY', tags:['SQL','Python','数据分析'], category:'数据', description:'支持商业产品的数据分析，通过指标体系与专项研究辅助产品决策。', requirements:['具备 2 年以上相关工作经验。','熟练使用 SQL，有业务指标体系建设经验。','能够独立完成分析并推动业务改进。'], url:'https://job.xiaohongshu.com/', age:6 },
+  { id:'j7', company:'Figma', logo:'F', color:'#9168d5', bg:'#f3edfc', title:'Product Designer', location:'New York, US', region:'na', work:'混合办公', track:'experienced', salary:'$135k – $170k / 年', currency:'USD', tags:['Figma','用户研究','设计系统'], category:'设计', description:'为专业设计工具构建一致、易用的产品体验，参与复杂设计问题的探索与落地。', requirements:['3 年以上数字产品设计经验。','熟悉设计系统与复杂交互场景。','具备跨职能协作和用户研究经验。'], url:'https://www.figma.com/careers/', age:7 },
+  { id:'j8', company:'美团', logo:'美', color:'#8b7311', bg:'#fff7d3', title:'产品经理 · 到店业务', location:'北京，中国', region:'cn', work:'现场办公', track:'experienced', salary:'¥25k – ¥45k / 月', currency:'CNY', tags:['数据分析','用户研究','原型设计'], category:'产品', description:'围绕本地生活服务场景优化用户体验，协调业务、设计和研发推动产品迭代。', requirements:['2 年以上产品相关工作经验。','能够完成需求分析、方案设计和上线复盘。','具备数据意识及良好的项目推进能力。'], url:'https://zhaopin.meituan.com/', age:8 },
+  { id:'j9', company:'Stripe', logo:'S', color:'#6555dc', bg:'#f0edff', title:'Software Engineer, New Grad', location:'Toronto, Canada', region:'na', work:'混合办公', track:'campus', salary:'CA$100k – CA$135k / 年', currency:'CAD', tags:['Python','JavaScript','SQL'], category:'研发', description:'参与支付产品的工程开发，为用户构建可靠的服务与清晰的开发者体验。', requirements:['计算机或相关专业应届毕业生。','掌握至少一种编程语言，了解数据结构。','能够提供课程项目或工程实践经历。'], url:'https://stripe.com/jobs', age:9 },
+  { id:'j10', company:'百度', logo:'百', color:'#476ad8', bg:'#eef1ff', title:'产品实习生 · AI 应用', location:'北京，中国', region:'cn', work:'现场办公', track:'campus', salary:'¥200 – ¥300 / 天', currency:'CNY', tags:['用户研究','原型设计','数据分析'], category:'产品', description:'参与 AI 应用的场景调研与产品体验分析，协助产品经理推进功能验证。', requirements:['在读本科生或研究生。','每周可实习至少三天。','具备产品好奇心和结构化思考能力。'], url:'https://talent.baidu.com/', age:10 },
+  { id:'j11', company:'RBC', logo:'R', color:'#1d62a5', bg:'#e9f2fc', title:'Business Analyst', location:'Vancouver, Canada', region:'na', work:'混合办公', track:'experienced', salary:'CA$80k – CA$105k / 年', currency:'CAD', tags:['SQL','数据分析','沟通协作'], category:'数据', description:'对接业务需求，通过数据分析与流程梳理支持数字化产品改进。', requirements:['2 年以上业务分析相关经验。','能够编写清晰的业务需求并与开发团队协作。','熟悉 SQL 或其他数据分析工具。'], url:'https://jobs.rbc.com/', age:11 },
+  { id:'j12', company:'网易', logo:'网', color:'#d45a49', bg:'#fff0ec', title:'交互设计师 · 校园招聘', location:'杭州，中国', region:'cn', work:'现场办公', track:'campus', salary:'¥18k – ¥28k / 月', currency:'CNY', tags:['Figma','原型设计','用户研究'], category:'设计', description:'参与内容社区与工具产品的交互设计，优化关键用户任务的完成体验。', requirements:['2027 届应届毕业生。','能够独立产出流程图、原型与设计说明。','重视细节，有用户体验相关作品。'], url:'https://hr.163.com/', age:12 },
+];
+
+export const PLANS = [
+  { id:'starter', name:'轻量探索', credits:300, price:19, desc:'先为心动的机会，认真准备', features:['约 15 份定制简历','中英文简历导出','岗位匹配分析'] },
+  { id:'focused', name:'求职加速', credits:1000, price:49, desc:'给每一次投递，多一点底气', features:['约 50 份定制简历','包含轻量探索全部功能','更适合持续投递'], popular:true },
+  { id:'pro', name:'全力出发', credits:3000, price:129, desc:'为下一段职业旅程，充分准备', features:['约 150 份定制简历','包含求职加速全部功能','覆盖多个求职方向'] },
+];

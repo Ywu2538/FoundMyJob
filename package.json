@@ -1,0 +1,14 @@
+{
+  "name": "foundmyjob",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A bilingual job discovery and tailored resume demo with an optional local Cursor bridge.",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "node server/index.mjs",
+    "start": "node server/index.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check dist/app.js && node --check dist/core.js && node --check server/index.mjs && node --check server/cursor.mjs"
+  }
+}

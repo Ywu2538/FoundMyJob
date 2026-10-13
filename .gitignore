@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.runtime/
+.cursor-install.ps1
+*.log
+artifacts/
+.sites-local/
+.openai/*.tar.gz
