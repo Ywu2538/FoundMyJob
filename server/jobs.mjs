@@ -19,7 +19,9 @@ export async function readJson(response,limit=25000000) {
   if(!response.ok)throw new Error(`服务返回 HTTP ${response.status}`);
   const chunks=[];let size=0;for await(const chunk of response.body){size+=chunk.length;if(size>limit)throw new Error('响应内容超过限制。');chunks.push(chunk);}return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
-export async function fetchJobs(source,{fetcher=fetch}={}) {
+export async function fetchJobs(source,{fetcher}={}) {
+  if(source.provider==='official')return (await import('./official-jobs.mjs')).fetchOfficialJobs(source,{fetcher});
+  fetcher??=fetch;
   if(!/^[a-zA-Z0-9_-]{1,80}$/.test(source.slug)||!['greenhouse','lever'].includes(source.provider))throw new Error('岗位源格式无效。');
   const url=source.provider==='greenhouse'?`https://boards-api.greenhouse.io/v1/boards/${source.slug}/jobs?content=true`:`https://api.lever.co/v0/postings/${source.slug}?mode=json`;
   const data=await readJson(await fetcher(url,{signal:AbortSignal.timeout(25000),redirect:'error'}));
@@ -29,6 +31,6 @@ export async function fetchJobs(source,{fetcher=fetch}={}) {
 }
 export function manualJob(input) {
   for(const k of ['title','company','description','location'])if(typeof input[k]!=='string'||!input[k].trim()||input[k].length>(k==='description'?24000:200))throw new Error(`请填写有效的 ${k}。`);
-  if(!['cn','na','other'].includes(input.region)||!['campus','experienced','unknown'].includes(input.track))throw new Error('请选择地区和招聘类型。');
-  return {...normalizeJob({...input,id:randomUUID()},{provider:'manual',slug:'user',company:input.company,id:'manual'}),region:input.region,track:input.track,sourceName:'手动导入（请核对原文）'};
+  if(!['cn','ca','us','na','other'].includes(input.region)||!['campus','experienced','unknown'].includes(input.track))throw new Error('请选择地区和招聘类型。');
+  return {...normalizeJob({...input,id:randomUUID()},{provider:'manual',slug:'user',company:input.company,id:'manual'}),region:['ca','us'].includes(input.region)?'na':input.region,market:['cn','ca','us'].includes(input.region)?input.region:undefined,track:input.track,sourceKind:input.discoveredFromWeb===true?'discovered':'manual',verificationStatus:'pending',descriptionKind:input.discoveredFromWeb===true?'summary':'full',sourceName:input.discoveredFromWeb===true?'官网检索（招聘状态待核验）':'手动导入（请核对原文）'};
 }

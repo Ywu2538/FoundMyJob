@@ -2,6 +2,20 @@ export const GENERATION_COST = 20;
 export const STORAGE_KEY = 'foundmyjob:demo:v1';
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 export const uid = () => globalThis.crypto.randomUUID();
+export function profileSearchScope(profile={}) {
+  if(['domestic','overseas','all'].includes(profile.searchScope))return profile.searchScope;
+  return profile.market==='cn'?'domestic':profile.market?'overseas':'all';
+}
+export function defaultJobFilters() {
+  return {query:'',company:'',region:'',track:'',work:'',sourceKind:'',sort:'match',targetOnly:false,savedOnly:false,pageSize:25,limit:25};
+}
+export function discoveryGroups(profile) {
+  const scope=profileSearchScope(profile);
+  return scope==='all'?['domestic','overseas']:[scope];
+}
+export function jobSourceKind(job) {
+  return job.sourceKind||(job.source==='manual'?'manual':'synced');
+}
 
 export function initialState(profile) {
   return { version:1, profile:structuredClone(profile), saved:['j1','j3'], resumes:[], applications:[], credits:200, transactions:[{id:'welcome',type:'gift',amount:200,label:'欢迎体验 · 演示积分',date:new Date().toISOString()}], settings:{language:'zh', model:'auto', provider:'demo'} };
@@ -24,19 +38,60 @@ export function validateState(state) {
 export function profileCompletion(p) {
   return Math.round(['name','email','location','target','education','experience','projects','preferences'].filter(k=>p[k]?.trim()).length/9*100 + (p.skills.length ? 100/9 : 0));
 }
+// Match job titles, not incidental mentions of tools in a job description.
+const roleFamilies = [
+  /数据分析|數據分析|data\s*analyst|data\s*analytics|business\s*intelligence|\bbi\s*analyst\b/i,
+  /商业分析|商業分析|业务分析|business\s*analyst|business\s*analytics/i,
+  /数据工程|大数据开发|数据开发|数据仓库|数仓|data\s*engineer|data\s*warehouse/i,
+  /数据科学|data\s*scien(?:tist|ce)/i,
+  /软件|软件开发师|software\s*(?:engineer|developer)|开发工程师/i,
+  /产品设计|product\s*design|\bux\b|\bui\b|用户体验/i,
+];
+export function matchesTarget(job, target='') {
+  const text=target.trim();
+  if(!text)return true;
+  const families=roleFamilies.filter(pattern=>pattern.test(text));
+  if(families.length)return families.some(pattern=>pattern.test(job.title||''));
+  return (job.title||'').toLowerCase().includes(text.toLowerCase());
+}
 export function matchJob(job, profile) {
   const skills = profile.skills.map(s=>s.toLowerCase().trim());
   const matched = job.tags.filter(tag=>skills.includes(tag.toLowerCase()));
   const missing = job.tags.filter(tag=>!skills.includes(tag.toLowerCase()));
   const sameTrack = job.track === profile.track;
   const text = (profile.target || '').toLowerCase();
-  const role = (job.category==='设计' && /设计|design/.test(text)) || (job.category==='产品' && /产品|product/.test(text)) || (job.category==='数据' && /数据|data/.test(text)) || (job.category==='研发' && /研发|开发|engineer/.test(text));
-  const score = Math.min(98, Math.round((job.tags.length?matched.length/job.tags.length*70:0) + (sameTrack?15:0) + (role?13:0)));
-  return { score, matched, missing, sameTrack };
+  const targetCategory=/数据|data/.test(text)?'数据':/设计|design/.test(text)?'设计':/产品|product/.test(text)?'产品':/研发|开发|软件|software|engineer|developer/.test(text)?'研发':null;
+  const role = job.title && text ? matchesTarget(job,profile.target) : job.category===targetCategory;
+  const score = Math.min(text&&!role?40:98, Math.round((job.tags.length?matched.length/job.tags.length*70:0) + (sameTrack?15:0) + (role?13:0)));
+  return { score, matched, missing, sameTrack, role };
+}
+// Country inference is a search aid; unknown or remote-only locations stay unknown.
+export function jobMarkets(job) {
+  if(job.market)return [job.market];
+  const location=job.location||'',markets=[];
+  if(/\b(?:China|Shanghai|Beijing|Shenzhen|Guangzhou|Hangzhou|Chengdu|Wuhan|Nanjing|Suzhou|Xian|Xi'an|Dongguan|Tianjin|Chongqing)\b|中国|上海|北京|深圳|广州|杭州|成都|武汉|南京|苏州|西安|东莞|天津|重庆/i.test(location))markets.push('cn');
+  if(/\b(?:Canada|Toronto|Vancouver|Montreal|Montréal|Ottawa|Calgary|Waterloo|Mississauga|Edmonton|Quebec|Québec|Winnipeg|Halifax)\b|加拿大|多伦多|温哥华/i.test(location))markets.push('ca');
+  if(/\b(?:United States|USA|US|New York|San Francisco|Seattle|Chicago|Austin|Boston|Los Angeles|NYC)\b|美国/i.test(location))markets.push('us');
+  if(/\b(?:Singapore|London|United Kingdom|UK|Amsterdam|Netherlands|Dublin|Ireland|Sydney|Australia|Tokyo|Japan|Seoul|Korea|India|Mumbai|Bengaluru|Gurugram|Gurgaon|Paris|France|Berlin|Germany|Warsaw|Poland|Zurich|Switzerland|Dubai|UAE|Hanoi|Vietnam|Aarhus|Denmark|Brazil|Israel|Cayman Islands|Grand Cayman|New Zealand|Europe)\b|新加坡|英国|伦敦|荷兰|澳大利亚|日本|印度|德国|法国|丹麦|巴西|以色列|新西兰|欧洲/i.test(location))markets.push('overseas');
+  if(!markets.length&&job.region==='cn')markets.push('cn');
+  return markets;
+}
+export function jobInRegion(job,region) {
+  if(!region)return true;
+  const markets=jobMarkets(job);
+  if(region==='overseas')return markets.some(m=>['ca','us','overseas'].includes(m))||job.region==='na';
+  if(region==='na')return job.region==='na'||markets.some(m=>m==='ca'||m==='us');
+  if(region==='other')return job.region==='other'&&!markets.some(m=>['cn','ca','us'].includes(m));
+  return markets.includes(region);
 }
 export function filterJobs(jobs, profile, filters={}) {
   const query = (filters.query || '').trim().toLowerCase();
-  return jobs.filter(j => (!query || [j.title,j.company,j.location,...j.tags].join(' ').toLowerCase().includes(query)) && (!filters.region || j.region===filters.region) && (!filters.track || j.track===filters.track) && (!filters.work || j.work===filters.work) && (!filters.savedOnly || filters.saved?.includes(j.id))).sort((a,b)=> filters.sort==='new' ? (Date.parse(b.syncedAt)||0)-(Date.parse(a.syncedAt)||0)||a.age-b.age : matchJob(b,profile).score-matchJob(a,profile).score);
+  return jobs.filter(j => (!filters.company||j.company===filters.company) && (!query || [j.title,j.company,j.location,...j.tags].join(' ').toLowerCase().includes(query)) && jobInRegion(j,filters.region) && (!filters.targetOnly || matchesTarget(j,profile.target)) && (!filters.sourceKind || jobSourceKind(j)===filters.sourceKind) && (!filters.track || j.track===filters.track) && (!filters.work || j.work===filters.work) && (!filters.savedOnly || filters.saved?.includes(j.id))).sort((a,b)=> filters.sort==='new' ? (Date.parse(b.syncedAt)||0)-(Date.parse(a.syncedAt)||0)||a.age-b.age : matchJob(b,profile).score-matchJob(a,profile).score);
+}
+export function discoverySummary(jobs,profile,filters={}) {
+  const active=jobs.filter(j=>j.active);
+  const results=filterJobs(filters.savedOnly?jobs:active,profile,filters);
+  return {active:active.length,archived:jobs.length-active.length,synced:active.filter(j=>jobSourceKind(j)==='synced').length,pending:active.filter(j=>jobSourceKind(j)==='discovered').length,manual:active.filter(j=>jobSourceKind(j)==='manual').length,region:active.filter(j=>jobInRegion(j,filters.region)).length,companies:new Set(active.map(j=>j.company)).size,results,visible:Math.min(results.length,filters.limit??results.length)};
 }
 export function makeDemoResume(profile, job, language='zh') {
   if (!profile.name?.trim() || !profile.education?.trim() || (!profile.experience?.trim() && !profile.projects?.trim())) throw new Error('请先填写姓名、教育经历，以及至少一项工作经历或项目经历。');

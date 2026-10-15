@@ -37,7 +37,7 @@ export function parseCursorOutput(raw) {
 
 export function buildPrompt(profile,job,language) {
   if(!profile||typeof profile.name!=='string'||!profile.name.trim()||typeof profile.education!=='string'||!profile.education.trim()||!Array.isArray(profile.skills)||!profile.skills.every(x=>typeof x==='string')||!job||typeof job.title!=='string'||typeof job.company!=='string'||!['zh','en'].includes(language))throw new Error('档案或岗位格式无效。');
-  const safeProfile=Object.fromEntries(['name','email','phone','location','education','experience','projects','preferences'].map(k=>[k,typeof profile[k]==='string'?profile[k]:'']));
+  const safeProfile=Object.fromEntries(['name','email','phone','location','target','market','searchScope','track','education','experience','projects','preferences'].map(k=>[k,typeof profile[k]==='string'?profile[k]:'']));
   safeProfile.skills=profile.skills;
   if(!safeProfile.experience.trim()&&!safeProfile.projects.trim())throw new Error('请提供实际经历或项目。');
   const safeJob={title:job.title,company:job.company,description:String(job.description||''),requirements:Array.isArray(job.requirements)?job.requirements.filter(x=>typeof x==='string'):[]};

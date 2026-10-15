@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "description": "Local job discovery and tailored resumes with SQLite, Cursor and isolated BYOK providers.",
-  "engines": { "node": ">=22.13" },
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "dev": "node --env-file-if-exists=.env.local server/index.mjs",
     "start": "node --env-file-if-exists=.env.local server/index.mjs",
     "cursor:login": "node scripts/login-cursor.mjs",
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check dist/app.js && node --check dist/core.js && node --check server/index.mjs && node --check server/db.mjs && node --check server/jobs.mjs && node --check server/providers.mjs && node --check server/cursor.mjs"
+    "check": "node --check dist/app.js && node --check dist/core.js && node --check server/index.mjs && node --check server/db.mjs && node --check server/jobs.mjs && node --check server/company-sources.mjs && node --check server/official-jobs.mjs && node --check server/providers.mjs && node --check server/cursor.mjs && node --check server/alibaba-sources.mjs && node --check server/feishu-sources.mjs && node --check server/moka-sources.mjs && node --check server/enterprise-sources.mjs && node --check server/official-fetch.mjs && node --check dist/company-logos.js && node --check server/mobile-sources.mjs && node --check server/bank-sources.mjs"
   }
 }
