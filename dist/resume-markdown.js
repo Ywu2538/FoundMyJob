@@ -61,8 +61,32 @@ function renderSection(items) {
     : renderBlocks(segment.items)).join('');
 }
 
+const skillsFirstLayouts=new Set(['classic','campus','modern','modular']);
+const skillsTitle=text=>{
+  const heading=String(text||'').replace(/[*_`]/g,'').trim();
+  return /^(?:专业技能|个人技能|核心技能|技术技能|技能特长|专业特长|专业专长|个人特长|能力特长|核心能力|专业能力|个人优势|核心优势|核心竞争力|技术栈|擅长领域|能力亮点|职业亮点)(?:$|[\s：:（(·—\-/／、]|[及和与])/.test(heading)
+    || /^(?:技能|特长|优势)(?:$|[\s：:（(·—\-/／、]|[及和与])/.test(heading)
+    || /^(?:(?:technical|core|professional|key)\s+skills?|skills?|strengths?|core\s+competenc(?:y|ies)|key\s+qualifications|areas?\s+of\s+expertise)(?:$|[\s:（(—-])/i.test(heading);
+};
+
+// Keep the editable source intact; use the same section order for preview, PDF and MD export.
+export function orderResumeMarkdown(markdown,layout='classic') {
+  const source=String(markdown??'');
+  if(!skillsFirstLayouts.has(layout))return source;
+  const lines=source.replace(/\r\n?/g,'\n').split('\n'),header=[],sections=[];
+  let current=null;
+  for(const line of lines){
+    if(/^##\s+/.test(line.trim())){if(current)sections.push(current);current=[];}
+    (current||header).push(line);
+  }
+  if(current)sections.push(current);
+  const isSkills=section=>skillsTitle(section[0].trim().replace(/^##\s+/,'').replace(/\s+#+\s*$/,''));
+  if(!sections.some(isSkills))return source;
+  return [...header,...sections.filter(isSkills).flat(),...sections.filter(section=>!isSkills(section)).flat()].join('\n');
+}
+
 export function renderResumeMarkdown(markdown,layout='classic') {
-  const items=blocks(markdown),firstSection=items.findIndex(item=>item.kind==='heading'&&item.level===2);
+  const items=blocks(orderResumeMarkdown(markdown,layout)),firstSection=items.findIndex(item=>item.kind==='heading'&&item.level===2);
   const headerEnd=firstSection>=0?firstSection:items.some(item=>item.kind==='heading'&&item.level===1)?items.length:0;
   const header=headerEnd?`<header class="resume-header">${renderBlocks(items.slice(0,headerEnd))}</header>`:'';
   const sections=[];

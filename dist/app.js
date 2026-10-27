@@ -1,3 +1,4 @@
+import {orderResumeMarkdown} from './resume-markdown.js';
 import {COMPANY_LOGOS} from './company-logos.js';
 import {normalizeResumeLayout,resumeLayoutPickerHtml,resumePrintDocumentHtml} from './resume-layouts.js';
 import {profileTrackFields} from './profile-track.js';
@@ -205,7 +206,7 @@ function profilePage() {
 }
 function resumesPage() {
  const resumes=records(state.resumes);
- return `${title('每个机会，都有专属表达。','从真实经历出发，整理、审核，再安心投递。',`<button class="button primary" data-action="nav" data-route="jobs">${icon('plus')} 为新岗位准备简历</button>`)}${recordFilter()}${resumes.length?`<div class="resume-list">${resumes.map(r=>`<article class="resume-card panel"><div class="resume-mini">${icon('file')}<span></span><span></span><span></span></div><div class="resume-card-info"><span class="badge ${r.status==='reviewed'?'mint':'lilac'}">${r.status==='reviewed'?'已审核':'待审核'}</span><h3>${e(r.title)}</h3><p class="source-profile">来源画像：${e(sourceLabel(r))}</p><p>${r.language==='en'?'English':'中文'} · ${date(r.createdAt)} 创建 · ${e(providerName(r.mode))} 生成</p><div class="resume-card-actions"><button class="button secondary" data-action="resume-detail" data-id="${r.id}">${icon('edit')} 编辑与审核</button><button class="icon-button danger-text" data-action="delete-resume" data-id="${r.id}" aria-label="删除 ${e(r.title)}">${icon('trash')}</button></div></div></article>`).join('')}</div>`:empty('你的第一份专属简历，正在等你。','先选择一个心动的岗位，再点击「生成专属简历」。')}`;
+ return `${title('每个机会，都有专属表达。','从真实经历出发，整理、审核，再安心投递。',`<button class="button primary" data-action="nav" data-route="jobs">${icon('plus')} 为新岗位准备简历</button>`)}${recordFilter()}${resumes.length?`<div class="resume-list">${resumes.map(r=>`<article class="resume-card panel"><div class="resume-mini">${icon('file')}<span></span><span></span><span></span></div><div class="resume-card-info"><span class="badge ${r.status==='reviewed'?'mint':'lilac'}">${r.status==='reviewed'?'已审核':'待审核'}</span><h3>${e(r.title)}</h3><p class="source-profile">来源画像：${e(sourceLabel(r))}</p><p>${r.language==='en'?'English':'中文'} · ${date(r.createdAt)} 创建 · ${e(providerName(r.mode))} 生成</p><div class="resume-card-actions"><button class="button secondary" data-action="resume-detail" data-id="${r.id}">${icon('file')} ${r.status==='reviewed'?"导出简历":"编辑与审核"}</button><button class="icon-button danger-text" data-action="delete-resume" data-id="${r.id}" aria-label="删除 ${e(r.title)}">${icon('trash')}</button></div></div></article>`).join('')}</div>`:empty('你的第一份专属简历，正在等你。','先选择一个心动的岗位，再点击「生成专属简历」。')}`;
 }
 function trackerPage() {
  const applications=records(state.applications);
@@ -230,7 +231,7 @@ function render() {
 
 let returnFocus;
 function modal(title,html,wide=false) {
- returnFocus=document.activeElement;
+ if(!$('dialog'))returnFocus=document.activeElement;
  $('#modal-root').innerHTML=`<dialog class="modal ${wide?'wide':''}" aria-labelledby="modal-title"><div class="modal-header"><h2 id="modal-title">${title}</h2><button class="icon-button" data-action="close-modal" aria-label="关闭对话框">${icon('close')}</button></div>${html}</dialog>`;
  const dialog=$('dialog');dialog.showModal();dialog.addEventListener('click',event=>{if(event.target===dialog){const b=dialog.getBoundingClientRect();if(event.clientX<b.left||event.clientX>b.right||event.clientY<b.top||event.clientY>b.bottom)closeModal();}});dialog.addEventListener('cancel',event=>{if(ui.generating)event.preventDefault();else{ui.modal=null;observeJobList();}});
 }
@@ -240,9 +241,25 @@ function showJob(id,profileId=ui.profileId) {
  const existing=state.resumes.filter(r=>r.jobId===id&&r.profileId===p.id);
  modal('机会详情',`<div class="job-modal-body"><div class="detail-title">${companyLogo(j)}<div><h3>${e(j.title)}</h3><p>${e(j.company)} · ${e(j.location)}</p></div><span class="badge lilac">${j.active?e(j.sourceName):'上次同步已下架'}</span></div><div class="detail-meta"><span>${e(j.salary)}</span><span>${e(j.work)}</span><span>${trackName(j.track)}</span></div><div class="detail-columns"><div><h4>${j.descriptionKind==='summary'?'岗位摘要':'关于这个机会'}</h4>${j.descriptionKind==='summary'?'<div class="notice"><b>岗位摘要 · 申请前请核验原文</b><p>以下为官网职位的摘要，完整职责、要求和当前招聘状态请打开原文确认。</p></div>':''}<p class="job-description">${e(j.description)}</p><h4>我们期待的你</h4><ul>${j.requirements.map(r=>`<li>${e(r)}</li>`).join('')}</ul><a class="text-button" href="${e(j.url)}" target="_blank" rel="noopener noreferrer">打开岗位原文 ${icon('external')}</a><p class="field-help">来源：${e(j.sourceName)} · ${jobSourceKind(j)==='synced'?'同步于':'收录于'} ${date(j.syncedAt)}。申请前请核对原文是否仍在招聘。</p></div><aside class="fit-panel"><span>${icon('spark')} 与「${e(p.label)}」匹配</span><strong>${fit.score}<small>%</small></strong><div class="progress-bar"><i style="width:${fit.score}%"></i></div><p>职位方向${fit.role?'相符':'不同'} · 技能重合 ${fit.matched.length}/${j.tags.length} · ${fit.sameTrack?'求职阶段一致':'求职阶段不同'}</p><div class="tags">${fit.matched.map(t=>`<span class="tag-match">✓ ${e(t)}</span>`).join('')}</div>${fit.missing.length?`<h5>可以进一步确认</h5><p>${fit.missing.map(e).join('、')}</p>`:''}<small>基于技能、目标方向与求职阶段的规则计算，不代表录用概率。</small></aside></div>${existing.length?`<div class="existing-resumes"><h4>「${e(p.label)}」已为这个岗位准备 ${existing.length} 份简历</h4>${existing.map(r=>`<button class="text-button" data-action="resume-detail" data-id="${r.id}">${icon('file')}${date(r.createdAt)} · ${r.status==='reviewed'?'已审核':'待审核'}${icon('arrow')}</button>`).join('')}</div>`:''}<div class="generation-controls"><label class="generation-profile">生成使用的画像<select id="generation-profile">${profileOptions(p.id)}${p.archived?`<option value="${p.id}" selected>${e(p.label)}（已归档）</option>`:''}</select></label><p class="profile-generation-note">${e(p.target||'未填写目标职位')} · ${scopeNames[profileSearchScope(p)]} · 仅使用这份画像已保存的经历${p.archived?'（请先恢复画像再生成）':''}</p><label>简历语言<select id="resume-language"><option value="zh" ${p.resumeLanguage==='zh'?'selected':''}>中文</option><option value="en" ${p.resumeLanguage==='en'?'selected':''}>English</option></select></label><p>${icon('info')} ${e(providerName(state.settings.provider))} · ${e(state.settings.model)}</p><label class="inline-check"><input type="checkbox" id="generation-consent"/> 我同意把「${e(p.label)}」与岗位要求发送给该服务，并使用该账户额度</label></div></div><div class="modal-footer"><button class="button secondary" data-action="track-job" data-id="${id}">${icon('plus')} ${state.applications.some(a=>a.jobId===id&&a.profileId===p.id)?'已加入投递计划':'加入投递计划'}</button><button class="button primary" data-action="generate" data-id="${id}" ${p.archived?'disabled':''}>${icon('spark')} 生成专属简历 </button></div>`,true);
 }
-function showResume(id) {
- const r=state.resumes.find(x=>x.id===id);if(!r){toast('这份简历已被删除。');return;}ui.modal={type:'resume',id};
- modal('简历工作室',`<div class="studio-toolbar"><div><strong>${e(r.title)}</strong><p class="source-profile">来源画像：${e(sourceLabel(r))}${r.profileRevision?` · 版本 ${r.profileRevision}`:''}</p><span class="badge ${r.status==='reviewed'?'mint':'lilac'}">${r.status==='reviewed'?'已审核':'待审核'}</span></div><span class="muted">${e(providerName(r.mode))} 生成 · 需核实事实</span></div>${resumeLayoutPickerHtml(r.layout)}<div class="studio"><section class="studio-editor"><div class="editor-label">${icon('edit')} 编辑内容 <span>支持简单 Markdown</span></div><textarea id="resume-editor" aria-label="简历内容" maxlength="40000" spellcheck="false">${e(r.content)}</textarea><div class="review-notes"><h4>${icon('info')} 审核提示</h4><ul>${r.notes.map(n=>`<li>${e(n)}</li>`).join('')}</ul></div></section><section class="studio-preview"><div class="preview-label">简历预览 <span>A4 · 可打印为 PDF</span></div><article class="resume-paper layout-${normalizeResumeLayout(r.layout)}" id="resume-preview">${markdownToHtml(r.content,normalizeResumeLayout(r.layout))}</article></section></div><div class="review-check"><label><input type="checkbox" id="review-confirm" ${r.status==='reviewed'?'checked':''}/> 我已逐项确认经历、技能和联系方式真实准确</label><small>修改内容后需重新审核；导出不代表已投递。</small></div><div class="modal-footer studio-footer"><div class="button-row"><button class="button secondary" data-action="save-resume" data-id="${id}">保存修改</button><button class="button secondary" data-action="download-resume" data-id="${id}">${icon('download')} Markdown</button><button class="button secondary" data-action="print-resume" data-id="${id}">${icon('download')} PDF / 打印</button></div><button class="button primary" data-action="review-resume" data-id="${id}">${icon('check')} 确认审核完成</button></div>`,true);
+function showResume(id,view='auto') {
+ const r=state.resumes.find(x=>x.id===id);if(!r){toast('这份简历已被删除。');return;}
+ const exportView=r.status==='reviewed'&&view!=='edit';
+ ui.modal={type:'resume',id,view:exportView?'export':'edit'};
+ if(exportView){
+  const layout=normalizeResumeLayout(r.layout);
+  modal('已审核',`
+   <div class="resume-export-intro"><span class="badge mint">已审核</span><strong>${e(r.title)}</strong><p>已审核，可以导出并自行投递。</p></div>
+   <div class="resume-export-preview"><article class="resume-paper layout-${layout}">${markdownToHtml(r.content,layout)}</article></div>
+   <div class="modal-footer studio-footer"><button class="button secondary" data-action="edit-reviewed-resume" data-id="${id}">${icon('edit')} 编辑内容</button><div class="button-row"><button class="button secondary" data-action="download-resume" data-id="${id}">${icon('download')} 保存 Markdown</button><button class="button primary" data-action="print-resume" data-id="${id}">${icon('download')} 保存 PDF / 打印</button></div></div>`,true);
+  return;
+ }
+ const layout=normalizeResumeLayout(r.layout);
+ modal('简历工作室',`
+  <div class="studio-toolbar"><div><strong>${e(r.title)}</strong><p class="source-profile">来源画像：${e(sourceLabel(r))}${r.profileRevision?` · 版本 ${r.profileRevision}`:''}</p><span class="badge ${r.status==='reviewed'?'mint':'lilac'}">${r.status==='reviewed'?'已审核':'待审核'}</span></div><span class="muted">${e(providerName(r.mode))} 生成 · 需核实事实</span></div>
+  ${resumeLayoutPickerHtml(r.layout)}
+  <div class="studio"><section class="studio-editor"><div class="editor-label">${icon('edit')} 编辑内容 <span>支持简单 Markdown</span></div><textarea id="resume-editor" aria-label="简历内容" maxlength="40000" spellcheck="false">${e(r.content)}</textarea><div class="review-notes"><h4>${icon('info')} 审核提示</h4><ul>${r.notes.map(n=>`<li>${e(n)}</li>`).join('')}</ul></div></section><section class="studio-preview"><div class="preview-label">简历预览 <span>A4 · 可打印为 PDF</span></div><article class="resume-paper layout-${layout}" id="resume-preview">${markdownToHtml(r.content,layout)}</article></section></div>
+  <div class="review-check"><label><input type="checkbox" id="review-confirm" ${r.status==='reviewed'?'checked':''}/> 我已逐项确认经历、技能和联系方式真实准确</label><small>修改内容后需重新审核；导出不代表已投递。</small></div>
+  <div class="modal-footer studio-footer"><button class="button secondary" data-action="save-resume" data-id="${id}">保存修改</button><button class="button primary" data-action="review-resume" data-id="${id}">${icon('check')} 确认审核完成</button></div>`,true);
 }
 function download(name,text,type='text/plain;charset=utf-8') { const url=URL.createObjectURL(new Blob([text],{type}));const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000); }
 async function saveCurrentResume(id,review=false) {
@@ -264,14 +281,19 @@ async function generate(id) {
  await pollTask(task.id);
 }
 async function printResume(id) {
+ const r=state.resumes.find(resume=>resume.id===id);
+ if(r?.status!=='reviewed')throw new Error('请先逐项审核并勾选确认。');
  const win=window.open('','_blank');if(!win)throw new Error('请允许打印窗口后重试。');
  try {
-  const r=await saveCurrentResume(id);
-  win.addEventListener('load',()=>win.print(),{once:true});
+  let printRequested=false;
+  const requestPrint=()=>{if(printRequested)return;printRequested=true;win.print();};
+  win.addEventListener('load',requestPrint,{once:true});
   win.document.write(resumePrintDocumentHtml({...r,buttonLabel:'打印 / 保存 PDF'},markdownToHtml));
   win.document.close();
-  win.document.getElementById('print').addEventListener('click',()=>win.print());
-  win.opener=null;render();
+  win.document.getElementById('print').addEventListener('click',requestPrint);
+  if(win.document.readyState==='complete')requestPrint();
+  win.opener=null;
+  closeModal();render();
  }catch(err){win.close();throw err;}
 }
 function importJob() {modal('导入真实岗位',`<form id="import-job-form" class="dialog-content"><div class="form-grid"><label>公司<input name="company" required maxlength="200"/></label><label>职位<input name="title" required maxlength="200"/></label><label>地点<input name="location" required maxlength="200"/></label><label>岗位原文链接<input name="url" type="url" required placeholder="https://..."/></label><label>地区<select name="region"><option value="cn">中国大陆</option><option value="ca">加拿大</option><option value="us">美国</option><option value="na">北美（国家未注明）</option><option value="other">其他</option></select></label><label>类型<select name="track"><option value="unknown">未注明</option><option value="campus">校招 / 实习</option><option value="experienced">社招</option></select></label></div><label>完整岗位描述<textarea name="description" required rows="10" maxlength="24000" placeholder="粘贴职责、要求和申请条件；不会自动绕过招聘网站登录"></textarea></label><button class="button primary" type="submit">保存到岗位库</button></form>`,true);}
@@ -294,9 +316,10 @@ const actions={
  'job-detail':el=>showJob(el.dataset.id,el.dataset.profileId||ui.profileId), 'close-modal':closeModal, 'generate':el=>generate(el.dataset.id),
  'resume-detail':el=>showResume(el.dataset.id), 'resume-task':el=>pollTask(el.dataset.id),
  'track-job':async el=>{const profileId=ui.modal.profileId;await update('/api/applications',{jobId:el.dataset.id,profileId});render();showJob(el.dataset.id,profileId);toast('已加入投递计划。');},
- 'save-resume':async el=>{await saveCurrentResume(el.dataset.id);render();showResume(el.dataset.id);toast('简历已保存。内容变更后需要重新审核。');},
- 'review-resume':async el=>{if(!$('#review-confirm').checked)throw new Error('请先逐项审核并勾选确认。');await saveCurrentResume(el.dataset.id,true);render();showResume(el.dataset.id);toast('已审核，可以导出并自行投递。');},
- 'download-resume':async el=>{const r=await saveCurrentResume(el.dataset.id);download(`FoundMyJob-${r.title.replace(/[<>:"/\\|?*]/g,'-')}.md`,r.content,'text/markdown;charset=utf-8');render();toast('简历已导出。');},
+ 'save-resume':async el=>{await saveCurrentResume(el.dataset.id);render();showResume(el.dataset.id,'edit');toast('简历已保存。内容变更后需要重新审核。');},
+ 'review-resume':async el=>{if(!$('#review-confirm').checked)throw new Error('请先逐项审核并勾选确认。');await saveCurrentResume(el.dataset.id,true);render();showResume(el.dataset.id,'export');toast('已审核，可以导出并自行投递。');},
+ 'edit-reviewed-resume':el=>showResume(el.dataset.id,'edit'),
+ 'download-resume':el=>{const r=state.resumes.find(resume=>resume.id===el.dataset.id);if(r?.status!=='reviewed')throw new Error('请先逐项审核并勾选确认。');download(`FoundMyJob-${r.title.replace(/[<>:"/\\|?*]/g,'-')}.md`,orderResumeMarkdown(r.content,normalizeResumeLayout(r.layout)),'text/markdown;charset=utf-8');closeModal();render();toast('简历已导出。');},
  'print-resume':el=>printResume(el.dataset.id),
  'delete-resume':el=>modal('删除这份简历？',`<div class="dialog-content"><p>此简历及历史版本将被删除，投递记录保留。</p><button class="button danger" data-action="confirm-delete" data-id="${el.dataset.id}">确认删除</button></div>`),
  'confirm-delete':async el=>{await update('/api/resumes/delete',{id:el.dataset.id});closeModal();render();toast('简历已删除。');},

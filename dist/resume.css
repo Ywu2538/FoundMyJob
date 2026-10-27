@@ -22,6 +22,11 @@
 .resume-template-option[data-layout="sidebar"] .resume-template-thumbnail i{margin-left:34%;max-width:60%}
 .resume-template-option[data-layout="sidebar"] .resume-template-thumbnail i:first-child{margin-left:0;background:#fff;width:23%}
 .resume-template-help{font-size:10px;line-height:1.5;color:#756981;margin:9px 0 0}
+.resume-export-intro{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:18px 25px;border-bottom:1px solid #e9e2ee}
+.resume-export-intro strong{font-size:13px;color:#3d3348}
+.resume-export-intro p{flex-basis:100%;margin:0;font-size:11px;color:#71617d}
+.resume-export-preview{max-height:65vh;overflow:auto;padding:20px 25px;background:#f3eff7}
+.resume-export-preview .resume-paper{max-width:760px;margin:0 auto}
 
 .resume-paper{--resume-accent:#333;--resume-ink:#26242a;--resume-muted:#55515a;box-sizing:border-box;width:100%;min-height:480px;padding:26px;background:#fff;color:var(--resume-ink);border:1px solid #e7e1e8;box-shadow:0 3px 12px #2f273010;font-family:Arial,"Microsoft YaHei",sans-serif;overflow-wrap:anywhere}
 .resume-paper *{box-sizing:border-box}
@@ -75,7 +80,7 @@ body.resume-print-page{margin:0;background:#e8e8e8}
 
 @media(max-width:1050px){.resume-template-options{grid-template-columns:repeat(auto-fit,minmax(125px,1fr))}}
 @media(max-width:760px){.studio-preview{display:block}.studio{grid-template-columns:1fr}}
-@media(max-width:600px){.resume-template-picker{padding:14px 18px}.resume-template-options{grid-template-columns:repeat(2,minmax(0,1fr))}.resume-paper.layout-sidebar .resume-document{grid-template-columns:33% 67%}}
+@media(max-width:600px){.resume-template-picker{padding:14px 18px}.resume-template-options{grid-template-columns:repeat(2,minmax(0,1fr))}.resume-paper.layout-sidebar .resume-document{grid-template-columns:33% 67%}.resume-export-preview{padding:12px}.resume-export-preview .resume-paper{padding:16px}.studio-footer:has([data-action="edit-reviewed-resume"]){flex-wrap:wrap}.studio-footer:has([data-action="edit-reviewed-resume"]) .button-row{display:flex;flex-wrap:wrap}}
 @page{size:A4;margin:12mm}
 @media print{
   html,body.resume-print-page{margin:0;padding:0;background:#fff}

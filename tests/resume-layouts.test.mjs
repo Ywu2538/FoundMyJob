@@ -27,6 +27,15 @@ test('five layouts offer distinct choices and print the rendered document safely
   assert.doesNotMatch(html,/###|\*\*Result/);
 });
 
+test('printed single-column layouts lead with existing skills before experience',()=>{
+  const content='# Candidate\nContact\n## Work Experience\n- Built tests\n## Technical Skills\n- Python';
+  for(const layout of ['classic','campus','modern','modular']){
+    const html=resumePrintDocumentHtml({title:'Candidate',content,layout,buttonLabel:'Print'},renderResumeMarkdown);
+    assert.ok(html.indexOf('<h1>Candidate</h1>')<html.indexOf('<h2>Technical Skills</h2>'),layout);
+    assert.ok(html.indexOf('<h2>Technical Skills</h2>')<html.indexOf('<h2>Work Experience</h2>'),layout);
+  }
+});
+
 test('the server serves every resume rendering asset with the right MIME type',async()=>{
   const server=createServer({store:new Store(':memory:')});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));

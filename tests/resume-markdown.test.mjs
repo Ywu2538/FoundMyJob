@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {renderResumeMarkdown} from '../dist/resume-markdown.js';
+import {orderResumeMarkdown,renderResumeMarkdown} from '../dist/resume-markdown.js';
 
 test('generated resume headings and emphasis render as document structure',()=>{
   const source=`# 候选人
@@ -50,4 +50,34 @@ test('sidebar layout moves skills and education into its visual column without c
   assert.doesNotMatch(side,/Work/);
   assert.match(main,/Work/);
   assert.equal((html.match(/Built tests/g)||[]).length,1);
+});
+
+test('four single-column layouts show existing strengths or skills before work without editing the source',()=>{
+  const source='# Candidate\nContact\n## Work Experience\n### Engineer\n- Built tests\n## Projects\n- Shipped a prototype\n## 核心竞争力\n- Python and SQL\n## Education\nUniversity';
+  for(const layout of ['classic','campus','modern','modular']){
+    const html=renderResumeMarkdown(source,layout);
+    const exported=orderResumeMarkdown(source,layout);
+    assert.ok(html.indexOf('核心竞争力')<html.indexOf('Work Experience'),layout);
+    assert.ok(exported.indexOf('核心竞争力')<exported.indexOf('Work Experience'),layout);
+    assert.ok(html.indexOf('Work Experience')<html.indexOf('Projects'),layout);
+    assert.ok(html.indexOf('Projects')<html.indexOf('Education'),layout);
+    assert.equal((html.match(/Python and SQL/g)||[]).length,1,layout);
+    assert.match(html,/^<div class="resume-document"><header class="resume-header">/,layout);
+  }
+  assert.ok(source.indexOf('Work Experience')<source.indexOf('核心竞争力'));
+  assert.equal(orderResumeMarkdown(source,'sidebar'),source);
+  assert.equal((renderResumeMarkdown(source,'sidebar').match(/Python and SQL/g)||[]).length,1);
+});
+
+test('skills-first matching covers common Chinese and English titles and leaves missing sections alone',()=>{
+  for(const title of ['专业技能','技能与特长','技术栈','个人优势','专业专长','擅长领域','Technical Skills','Core Competencies','Strengths']){
+    const html=renderResumeMarkdown(`## 工作经历\n- Work\n## ${title}\n- Evidence`,'classic');
+    assert.ok(html.indexOf(title)<html.indexOf('工作经历'),title);
+  }
+  const noSkillsSource='## 工作经历\n- Work\n## 项目经历\n- Project';
+  const noSkills=renderResumeMarkdown(noSkillsSource,'classic');
+  assert.ok(noSkills.indexOf('工作经历')<noSkills.indexOf('项目经历'));
+  assert.equal(orderResumeMarkdown(noSkillsSource,'classic'),noSkillsSource);
+  const training=renderResumeMarkdown('## 工作经历\n- Work\n## 专业技能培训经历\n- Training','classic');
+  assert.ok(training.indexOf('工作经历')<training.indexOf('专业技能培训经历'));
 });
