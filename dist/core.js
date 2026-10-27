@@ -1,3 +1,4 @@
+import {profileFocusField} from './profile-track.js';
 export const GENERATION_COST = 20;
 export const STORAGE_KEY = 'foundmyjob:demo:v1';
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -36,7 +37,8 @@ export function validateState(state) {
   return state;
 }
 export function profileCompletion(p) {
-  return Math.round(['name','email','location','target','education','experience','projects','preferences'].filter(k=>p[k]?.trim()).length/9*100 + (p.skills.length ? 100/9 : 0));
+  const fields=['name','email','location','target','education',profileFocusField(p.track),'preferences'];
+  return Math.round((fields.filter(k=>p[k]?.trim()).length+(p.skills.length?1:0))/8*100);
 }
 // Match job titles, not incidental mentions of tools in a job description.
 const roleFamilies = [
