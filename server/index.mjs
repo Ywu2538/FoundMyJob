@@ -9,11 +9,15 @@ import { fetchJobs, manualJob } from './jobs.mjs';
 import { Providers } from './providers.mjs';
 import {COMPANY_LOGOS} from '../dist/company-logos.js';
 import { profileSearchScope } from '../dist/core.js';
+import {DEFAULT_RESUME_LAYOUT,isResumeLayout} from '../dist/resume-layouts.js';
 
 const root=fileURLToPath(new URL('../dist/',import.meta.url));
 const files={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/core.js':'core.js','/styles.css':'styles.css','/favicon.svg':'favicon.svg'};
 files['/company-logos.js']='company-logos.js';
 files['/profile-track.js']='profile-track.js';
+files['/resume-markdown.js']='resume-markdown.js';
+files['/resume-layouts.js']='resume-layouts.js';
+files['/resume.css']='resume.css';
 for(const asset of Object.values(COMPANY_LOGOS))files[asset]=asset.slice(1);
 const types={'.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'};
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
@@ -89,7 +93,7 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
           const a=store.get('applications',input.id);if(!a)fail('投递记录不存在。');const status=enumeration(input.status,['准备中','已投递','面试中','已结束']);
           if(['已投递','面试中'].includes(status)&&!store.rows('resumes').some(r=>r.jobId===a.jobId&&r.profileId===a.profileId&&r.status==='reviewed'))fail('请先完成该岗位、该画像的简历审核。');
           const r=store.db.prepare('UPDATE applications SET data=?,revision=revision+1 WHERE id=? AND revision=?').run(JSON.stringify({...a,status,updatedAt:new Date().toISOString()}),input.id,input.revision);if(!r.changes)fail('投递记录已更新，请刷新重试。',409);
-        }else if(p==='/api/resumes/save') {store.editResume(input.id,{content:string(input.content,40000,true),review:input.review===true,revision:input.revision});
+        }else if(p==='/api/resumes/save') {if(input.layout!==undefined&&!isResumeLayout(input.layout))fail('简历布局无效。');store.editResume(input.id,{content:string(input.content,40000,true),review:input.review===true,revision:input.revision,layout:input.layout});
         }else if(p==='/api/resumes/delete') {store.db.prepare('DELETE FROM resumes WHERE id=?').run(input.id);
         }else if(p==='/api/generate') {
           const provider=enumeration(input.provider,['cursor','platform',...providers.list().map(p=>p.id)]);
@@ -104,7 +108,7 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
           if(provider!=='cursor'&&!providers.keys.has(provider))fail('请在 AI 设置中输入你自己的 API Key。');
           busy=true;const task={id,status:'running',jobId:job.id,profileId,profileLabel:profile.label,profileRevision:profile.revision,language,sourceProfile:profile,provider,model,createdAt:new Date().toISOString()};store.put('tasks',task);
           Promise.resolve().then(()=>provider==='cursor'?generator({profile,job,language},{model}):providers.generate({profile,job,language,provider,model,freeOnly:input.freeOnly===true})).then(result=>{
-            const resume={...result,id:randomUUID(),jobId:job.id,profileId,profileLabel:profile.label,profileRevision:profile.revision,title:`${job.company} · ${job.title}`,language,status:'draft',reviewedAt:null,createdAt:new Date().toISOString(),sourceProfile:profile,sourceJob:job};
+            const resume={...result,id:randomUUID(),jobId:job.id,profileId,profileLabel:profile.label,profileRevision:profile.revision,title:`${job.company} · ${job.title}`,language,layout:DEFAULT_RESUME_LAYOUT,status:'draft',reviewedAt:null,createdAt:new Date().toISOString(),sourceProfile:profile,sourceJob:job};
             store.transaction(()=>{store.db.prepare('INSERT INTO resumes(id,job_id,data) VALUES(?,?,?)').run(resume.id,job.id,JSON.stringify(resume));store.db.prepare('INSERT INTO resume_versions(resume_id,data) VALUES(?,?)').run(resume.id,JSON.stringify(resume));store.put('tasks',{...task,status:'completed',resumeId:resume.id,finishedAt:new Date().toISOString()});});
           }).catch(error=>store.put('tasks',{...task,status:'failed',error:error.message,finishedAt:new Date().toISOString()})).finally(()=>{busy=false;});
           return json(res,202,task);

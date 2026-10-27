@@ -1,0 +1,97 @@
+.resume-template-picker{margin:0;padding:16px 25px 18px;border:0;border-bottom:1px solid #e9e2ee;background:#fff}
+.resume-template-picker legend{font-size:12px;font-weight:700;color:#554663;padding:0 0 9px}
+.resume-template-options{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}
+.resume-template-option{position:relative;display:flex;flex-direction:column;gap:6px;min-width:0;padding:10px;border:1px solid #dfd7e8;border-radius:9px;cursor:pointer;background:#fff;color:#51465c}
+.resume-template-option:has(input:checked){border-color:#7660a6;box-shadow:0 0 0 2px #e5dbf6;background:#fcfaff}
+.resume-template-option:focus-within{outline:2px solid #7660a6;outline-offset:2px}
+.resume-template-option input{position:absolute;opacity:0;width:1px;height:1px}
+.resume-template-option strong{font-size:11px;line-height:1.25}
+.resume-template-option small{font-size:9px;line-height:1.35;color:#7b7086}
+.resume-template-option em{font-size:9px;font-style:normal;color:#4e7a67}
+.resume-template-option[data-layout="sidebar"] em{color:#946b43}
+.resume-template-thumbnail{height:45px;border:1px solid #e7e2e9;border-radius:3px;background:#fff;padding:7px;display:flex;flex-direction:column;gap:5px;overflow:hidden}
+.resume-template-thumbnail i{display:block;height:3px;background:#b8b1be;border-radius:1px}
+.resume-template-thumbnail i:first-child{width:42%;height:6px;background:#655b70}
+.resume-template-thumbnail i:nth-child(2){width:78%}
+.resume-template-thumbnail i:last-child{width:63%}
+.resume-template-option[data-layout="classic"] .resume-template-thumbnail i:first-child{align-self:center}
+.resume-template-option[data-layout="campus"] .resume-template-thumbnail{border-top:4px solid #4b76a8}
+.resume-template-option[data-layout="modern"] .resume-template-thumbnail i:first-child{background:#1f476d;width:60%}
+.resume-template-option[data-layout="modular"] .resume-template-thumbnail{border-left:6px solid #547f78}
+.resume-template-option[data-layout="sidebar"] .resume-template-thumbnail{background:linear-gradient(90deg,#203950 0 31%,#fff 31%)}
+.resume-template-option[data-layout="sidebar"] .resume-template-thumbnail i{margin-left:34%;max-width:60%}
+.resume-template-option[data-layout="sidebar"] .resume-template-thumbnail i:first-child{margin-left:0;background:#fff;width:23%}
+.resume-template-help{font-size:10px;line-height:1.5;color:#756981;margin:9px 0 0}
+
+.resume-paper{--resume-accent:#333;--resume-ink:#26242a;--resume-muted:#55515a;box-sizing:border-box;width:100%;min-height:480px;padding:26px;background:#fff;color:var(--resume-ink);border:1px solid #e7e1e8;box-shadow:0 3px 12px #2f273010;font-family:Arial,"Microsoft YaHei",sans-serif;overflow-wrap:anywhere}
+.resume-paper *{box-sizing:border-box}
+.resume-paper .resume-header{margin:0 0 17px;padding:0 0 11px}
+.resume-paper h1{font-size:24px;line-height:1.2;margin:0 0 8px;color:var(--resume-ink);font-weight:700}
+.resume-paper h2{font-size:13px;line-height:1.3;margin:17px 0 9px;padding:0 0 5px;color:var(--resume-accent);border-bottom:1px solid #bab7bd;font-weight:700}
+.resume-paper h3{font-size:11px;line-height:1.4;margin:12px 0 5px;color:var(--resume-ink);font-weight:700}
+.resume-paper h4{font-size:10.5px;line-height:1.4;margin:10px 0 4px;color:var(--resume-ink);font-weight:700}
+.resume-paper p,.resume-paper li{font-size:10.5px;line-height:1.58;margin:4px 0;color:var(--resume-ink)}
+.resume-paper ul,.resume-paper ol{padding-left:18px;margin:5px 0 9px}
+.resume-paper li{padding-left:1px}
+.resume-paper strong{font-weight:700;color:var(--resume-ink)}
+.resume-paper em{font-style:italic}
+.resume-paper .resume-section{margin:0 0 11px}
+.resume-paper .resume-entry{margin:0 0 10px;break-inside:avoid-page}
+.resume-paper .resume-header p{color:var(--resume-muted)}
+
+.resume-paper.layout-classic .resume-header{text-align:center;border-bottom:1.5px solid #404044}
+.resume-paper.layout-classic h2{letter-spacing:.03em;border-bottom:1px solid #717174}
+.resume-paper.layout-campus{--resume-accent:#376897;--resume-muted:#626f7d}
+.resume-paper.layout-campus .resume-header{border-bottom:2px solid #668eb8}
+.resume-paper.layout-campus h1{color:#2d5e8e}
+.resume-paper.layout-campus h2{border-bottom:1px solid #b9cde1;margin-top:14px}
+.resume-paper.layout-campus p,.resume-paper.layout-campus li{line-height:1.48;margin:3px 0}
+.resume-paper.layout-modern{--resume-accent:#1e496c;--resume-muted:#516679}
+.resume-paper.layout-modern .resume-header{border-bottom:3px solid #1e496c;padding-bottom:14px;margin-bottom:19px}
+.resume-paper.layout-modern h1{font-size:27px;color:#1e496c}
+.resume-paper.layout-modern h2{border:0;border-left:4px solid #1e496c;padding:1px 0 1px 9px;margin-top:20px}
+.resume-paper.layout-modular{--resume-accent:#356b65;--resume-muted:#5c6f6a}
+.resume-paper.layout-modular .resume-header{padding:0 0 13px;border-bottom:1px solid #79a39c}
+.resume-paper.layout-modular .resume-section{border-left:3px solid #7ca89f;padding-left:12px;margin-bottom:16px}
+.resume-paper.layout-modular h2{border:0;margin:17px 0 10px;padding:0;color:#2c635d}
+.resume-paper.layout-sidebar{--resume-accent:#1f4966;padding:0}
+.resume-paper.layout-sidebar .resume-document{display:grid;grid-template-columns:minmax(125px,29%) minmax(0,1fr);gap:0}
+.resume-paper.layout-sidebar .resume-document:not(:has(.resume-sidebar)){display:block}
+.resume-paper.layout-sidebar .resume-sidebar{background:#e9f1f6;border-right:3px solid #6d91aa;padding:24px 17px;min-width:0}
+.resume-paper.layout-sidebar .resume-header{background:transparent;color:#183b55;margin:0 0 20px;padding:0 0 13px;border-bottom:1px solid #b3c8d6;min-width:0}
+.resume-paper.layout-sidebar .resume-body{grid-column:2}
+.resume-paper.layout-sidebar .resume-header h1,.resume-paper.layout-sidebar .resume-header p,.resume-paper.layout-sidebar .resume-header strong{color:#183b55}
+.resume-paper.layout-sidebar .resume-header h1{font-size:22px;overflow-wrap:anywhere}
+.resume-paper.layout-sidebar .resume-body{padding:24px 22px;min-width:0}
+.resume-paper.layout-sidebar h2{border-bottom:1px solid #a6bdce;color:#1f4966}
+.resume-paper.layout-sidebar .resume-sidebar .resume-section{margin-bottom:16px}
+.resume-paper.layout-sidebar .resume-sidebar h2{font-size:11px;margin-top:12px}
+.resume-paper.layout-sidebar .resume-sidebar p,.resume-paper.layout-sidebar .resume-sidebar li{font-size:9.7px}
+
+.resume-print-actions{display:flex;justify-content:flex-end;padding:8px 14px;background:#eee}
+.resume-print-actions button{font:inherit;padding:7px 15px;border:1px solid #777;border-radius:5px;background:#fff;cursor:pointer}
+body.resume-print-page{margin:0;background:#e8e8e8}
+.resume-print-page .resume-paper{width:210mm;min-height:297mm;margin:14px auto;box-shadow:0 6px 30px #0002;padding:17mm}
+
+@media(max-width:1050px){.resume-template-options{grid-template-columns:repeat(auto-fit,minmax(125px,1fr))}}
+@media(max-width:760px){.studio-preview{display:block}.studio{grid-template-columns:1fr}}
+@media(max-width:600px){.resume-template-picker{padding:14px 18px}.resume-template-options{grid-template-columns:repeat(2,minmax(0,1fr))}.resume-paper.layout-sidebar .resume-document{grid-template-columns:33% 67%}}
+@page{size:A4;margin:12mm}
+@media print{
+  html,body.resume-print-page{margin:0;padding:0;background:#fff}
+  .resume-print-actions{display:none!important}
+  .resume-print-page .resume-paper{width:auto;min-height:0;margin:0;padding:0;border:0;box-shadow:none;font-size:10pt;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .resume-paper h1{font-size:19pt}
+  .resume-paper h2{font-size:10.5pt;margin:11px 0 6px;break-after:avoid-page}
+  .resume-paper h3{font-size:9.7pt;margin:8px 0 3px;break-after:avoid-page}
+  .resume-paper p,.resume-paper li{font-size:9.4pt;line-height:1.34;margin:3px 0}
+  .resume-paper ul,.resume-paper ol{margin:3px 0 5px}
+  .resume-paper .resume-header{margin-bottom:10px;padding-bottom:8px}
+  .resume-paper .resume-section{margin-bottom:4px}
+  .resume-paper .resume-entry{margin-bottom:5px;break-inside:avoid-page}
+  .resume-paper li{break-inside:avoid-page}
+  .resume-paper.layout-sidebar .resume-document{grid-template-columns:49mm minmax(0,1fr)}
+  .resume-paper.layout-sidebar .resume-sidebar{padding:6mm}
+  .resume-paper.layout-sidebar .resume-header{padding:0 0 3mm}
+  .resume-paper.layout-sidebar .resume-body{padding:6mm}
+}

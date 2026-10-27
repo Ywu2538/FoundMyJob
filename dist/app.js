@@ -1,4 +1,5 @@
 import {COMPANY_LOGOS} from './company-logos.js';
+import {normalizeResumeLayout,resumeLayoutPickerHtml,resumePrintDocumentHtml} from './resume-layouts.js';
 import {profileTrackFields} from './profile-track.js';
 import { escapeHtml as e, uid, profileCompletion, matchJob, filterJobs, discoverySummary, profileSearchScope, defaultJobFilters, discoveryGroups, jobSourceKind, markdownToHtml } from './core.js';
 
@@ -241,12 +242,13 @@ function showJob(id,profileId=ui.profileId) {
 }
 function showResume(id) {
  const r=state.resumes.find(x=>x.id===id);if(!r){toast('这份简历已被删除。');return;}ui.modal={type:'resume',id};
- modal('简历工作室',`<div class="studio-toolbar"><div><strong>${e(r.title)}</strong><p class="source-profile">来源画像：${e(sourceLabel(r))}${r.profileRevision?` · 版本 ${r.profileRevision}`:''}</p><span class="badge ${r.status==='reviewed'?'mint':'lilac'}">${r.status==='reviewed'?'已审核':'待审核'}</span></div><span class="muted">${e(providerName(r.mode))} 生成 · 需核实事实</span></div><div class="studio"><section class="studio-editor"><div class="editor-label">${icon('edit')} 编辑内容 <span>支持简单 Markdown</span></div><textarea id="resume-editor" aria-label="简历内容" maxlength="40000" spellcheck="false">${e(r.content)}</textarea><div class="review-notes"><h4>${icon('info')} 审核提示</h4><ul>${r.notes.map(n=>`<li>${e(n)}</li>`).join('')}</ul></div></section><section class="studio-preview"><div class="preview-label">简历预览 <span>A4 · 可打印为 PDF</span></div><article class="resume-paper" id="resume-preview">${markdownToHtml(r.content)}</article></section></div><div class="review-check"><label><input type="checkbox" id="review-confirm" ${r.status==='reviewed'?'checked':''}/> 我已逐项确认经历、技能和联系方式真实准确</label><small>修改内容后需重新审核；导出不代表已投递。</small></div><div class="modal-footer studio-footer"><div class="button-row"><button class="button secondary" data-action="save-resume" data-id="${id}">保存修改</button><button class="button secondary" data-action="download-resume" data-id="${id}">${icon('download')} Markdown</button><button class="button secondary" data-action="print-resume" data-id="${id}">${icon('download')} PDF / 打印</button></div><button class="button primary" data-action="review-resume" data-id="${id}">${icon('check')} 确认审核完成</button></div>`,true);
+ modal('简历工作室',`<div class="studio-toolbar"><div><strong>${e(r.title)}</strong><p class="source-profile">来源画像：${e(sourceLabel(r))}${r.profileRevision?` · 版本 ${r.profileRevision}`:''}</p><span class="badge ${r.status==='reviewed'?'mint':'lilac'}">${r.status==='reviewed'?'已审核':'待审核'}</span></div><span class="muted">${e(providerName(r.mode))} 生成 · 需核实事实</span></div>${resumeLayoutPickerHtml(r.layout)}<div class="studio"><section class="studio-editor"><div class="editor-label">${icon('edit')} 编辑内容 <span>支持简单 Markdown</span></div><textarea id="resume-editor" aria-label="简历内容" maxlength="40000" spellcheck="false">${e(r.content)}</textarea><div class="review-notes"><h4>${icon('info')} 审核提示</h4><ul>${r.notes.map(n=>`<li>${e(n)}</li>`).join('')}</ul></div></section><section class="studio-preview"><div class="preview-label">简历预览 <span>A4 · 可打印为 PDF</span></div><article class="resume-paper layout-${normalizeResumeLayout(r.layout)}" id="resume-preview">${markdownToHtml(r.content,normalizeResumeLayout(r.layout))}</article></section></div><div class="review-check"><label><input type="checkbox" id="review-confirm" ${r.status==='reviewed'?'checked':''}/> 我已逐项确认经历、技能和联系方式真实准确</label><small>修改内容后需重新审核；导出不代表已投递。</small></div><div class="modal-footer studio-footer"><div class="button-row"><button class="button secondary" data-action="save-resume" data-id="${id}">保存修改</button><button class="button secondary" data-action="download-resume" data-id="${id}">${icon('download')} Markdown</button><button class="button secondary" data-action="print-resume" data-id="${id}">${icon('download')} PDF / 打印</button></div><button class="button primary" data-action="review-resume" data-id="${id}">${icon('check')} 确认审核完成</button></div>`,true);
 }
 function download(name,text,type='text/plain;charset=utf-8') { const url=URL.createObjectURL(new Blob([text],{type}));const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000); }
 async function saveCurrentResume(id,review=false) {
  const r=state.resumes.find(r=>r.id===id),content=$('#resume-editor')?.value??r.content;
- if(content!==r.content||review)await update('/api/resumes/save',{id,content,review,revision:r.revision});
+ const layout=normalizeResumeLayout(document.querySelector('input[name="resume-template"]:checked')?.value??r.layout);
+ if(content!==r.content||layout!==normalizeResumeLayout(r.layout)||review)await update('/api/resumes/save',{id,content,layout,review,revision:r.revision});
  return state.resumes.find(r=>r.id===id);
 }
 async function pollTask(id) {
@@ -263,7 +265,14 @@ async function generate(id) {
 }
 async function printResume(id) {
  const win=window.open('','_blank');if(!win)throw new Error('请允许打印窗口后重试。');
- try{const r=await saveCurrentResume(id);win.document.write(`<!doctype html><html><head><meta charset="UTF-8"><title>${e(r.title)}</title><style>body{font-family:Arial,"Microsoft YaHei",sans-serif;max-width:720px;margin:40px auto;line-height:1.6;font-size:12px;color:#202329}h1{font-size:26px}h2{font-size:15px;border-bottom:1px solid #aaa;margin-top:24px;break-after:avoid}p{margin:5px 0;overflow-wrap:anywhere;orphans:3;widows:3}@page{size:A4;margin:18mm}@media print{button{display:none}body{margin:0}}</style></head><body><button id="print">打印 / 保存 PDF</button>${markdownToHtml(r.content)}</body></html>`);win.document.close();win.document.getElementById('print').addEventListener('click',()=>win.print());win.opener=null;win.print();render();}catch(err){win.close();throw err;}
+ try {
+  const r=await saveCurrentResume(id);
+  win.addEventListener('load',()=>win.print(),{once:true});
+  win.document.write(resumePrintDocumentHtml({...r,buttonLabel:'打印 / 保存 PDF'},markdownToHtml));
+  win.document.close();
+  win.document.getElementById('print').addEventListener('click',()=>win.print());
+  win.opener=null;render();
+ }catch(err){win.close();throw err;}
 }
 function importJob() {modal('导入真实岗位',`<form id="import-job-form" class="dialog-content"><div class="form-grid"><label>公司<input name="company" required maxlength="200"/></label><label>职位<input name="title" required maxlength="200"/></label><label>地点<input name="location" required maxlength="200"/></label><label>岗位原文链接<input name="url" type="url" required placeholder="https://..."/></label><label>地区<select name="region"><option value="cn">中国大陆</option><option value="ca">加拿大</option><option value="us">美国</option><option value="na">北美（国家未注明）</option><option value="other">其他</option></select></label><label>类型<select name="track"><option value="unknown">未注明</option><option value="campus">校招 / 实习</option><option value="experienced">社招</option></select></label></div><label>完整岗位描述<textarea name="description" required rows="10" maxlength="24000" placeholder="粘贴职责、要求和申请条件；不会自动绕过招聘网站登录"></textarea></label><button class="button primary" type="submit">保存到岗位库</button></form>`,true);}
 
@@ -322,6 +331,7 @@ document.addEventListener('submit',async event=>{
 });
 document.addEventListener('change',async event=>{
  const el=event.target;
+ if(el.name==='resume-template'){const preview=$('#resume-preview');if(preview){const layout=normalizeResumeLayout(el.value);preview.className=`resume-paper layout-${layout}`;preview.innerHTML=markdownToHtml($('#resume-editor').value,layout);}}
  try {
   if(el.dataset.profileSelect){chooseProfile(el.value);render();}
   if(el.id==='generation-profile'){const id=ui.modal.id;chooseProfile(el.value);render();showJob(id);}
@@ -346,7 +356,7 @@ function rememberProfileDraft(form=$('#profile-form')){
  form.querySelector('#profile-draft-note').textContent='有未保存修改；搜索和生成使用已保存版本。';
 }
 window.addEventListener('beforeunload',event=>{if(Object.keys(ui.drafts).length){event.preventDefault();event.returnValue='';}});
-document.addEventListener('input',event=>{if(event.target.closest('#profile-form'))rememberProfileDraft();if(event.target.id==='resume-editor'){$('#resume-preview').innerHTML=markdownToHtml(event.target.value);$('#review-confirm').checked=false;}});
+document.addEventListener('input',event=>{if(event.target.closest('#profile-form'))rememberProfileDraft();if(event.target.id==='resume-editor'){$('#resume-preview').innerHTML=markdownToHtml(event.target.value,normalizeResumeLayout(document.querySelector('input[name="resume-template"]:checked')?.value));$('#review-confirm').checked=false;}});
 
 async function boot() {
  try{await refresh();ui.provider=state.settings.provider;ui.freeOnly=state.settings.freeOnly===true;render();}

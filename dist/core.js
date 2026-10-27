@@ -1,4 +1,5 @@
 import {profileFocusField} from './profile-track.js';
+import {renderResumeMarkdown} from './resume-markdown.js';
 export const GENERATION_COST = 20;
 export const STORAGE_KEY = 'foundmyjob:demo:v1';
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -125,11 +126,6 @@ export function editResume(resume, content) {
   if (!content.trim()) throw new Error('简历内容不能为空。');
   return { ...resume, content, status:'draft', reviewedAt:null };
 }
-export function markdownToHtml(markdown) {
-  return markdown.split('\n').map(line=>{
-    if (line.startsWith('## ')) return `<h2>${escapeHtml(line.slice(3))}</h2>`;
-    if (line.startsWith('# ')) return `<h1>${escapeHtml(line.slice(2))}</h1>`;
-    if (/^[-*] /.test(line)) return `<p class="resume-bullet">• ${escapeHtml(line.slice(2))}</p>`;
-    return line.trim() ? `<p>${escapeHtml(line)}</p>` : '';
-  }).join('');
+export function markdownToHtml(markdown,layout='classic') {
+  return renderResumeMarkdown(markdown,layout);
 }
