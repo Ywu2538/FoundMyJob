@@ -1,4 +1,5 @@
 import {orderResumeMarkdown} from './resume-markdown.js';
+import {resumeReviewTips} from './resume-review-tips.js';
 import {COMPANY_LOGOS} from './company-logos.js';
 import {normalizeResumeLayout,resumeLayoutPickerHtml,resumePrintDocumentHtml} from './resume-layouts.js';
 import {profileTrackFields} from './profile-track.js';
@@ -257,7 +258,7 @@ function showResume(id,view='auto') {
  modal('简历工作室',`
   <div class="studio-toolbar"><div><strong>${e(r.title)}</strong><p class="source-profile">来源画像：${e(sourceLabel(r))}${r.profileRevision?` · 版本 ${r.profileRevision}`:''}</p><span class="badge ${r.status==='reviewed'?'mint':'lilac'}">${r.status==='reviewed'?'已审核':'待审核'}</span></div><span class="muted">${e(providerName(r.mode))} 生成 · 需核实事实</span></div>
   ${resumeLayoutPickerHtml(r.layout)}
-  <div class="studio"><section class="studio-editor"><div class="editor-label">${icon('edit')} 编辑内容 <span>支持简单 Markdown</span></div><textarea id="resume-editor" aria-label="简历内容" maxlength="40000" spellcheck="false">${e(r.content)}</textarea><div class="review-notes"><h4>${icon('info')} 审核提示</h4><ul>${r.notes.map(n=>`<li>${e(n)}</li>`).join('')}</ul></div></section><section class="studio-preview"><div class="preview-label">简历预览 <span>A4 · 可打印为 PDF</span></div><article class="resume-paper layout-${layout}" id="resume-preview">${markdownToHtml(r.content,layout)}</article></section></div>
+  <div class="studio"><section class="studio-editor"><div class="editor-label">${icon('edit')} 编辑内容 <span>支持简单 Markdown</span></div><textarea id="resume-editor" aria-label="简历内容" maxlength="40000" spellcheck="false">${e(r.content)}</textarea><div class="review-notes"><h4>${icon('info')} 简历修改提示</h4><ul>${resumeReviewTips(r).map(n=>`<li>${e(n)}</li>`).join('')}</ul></div></section><section class="studio-preview"><div class="preview-label">简历预览 <span>A4 · 可打印为 PDF</span></div><article class="resume-paper layout-${layout}" id="resume-preview">${markdownToHtml(r.content,layout)}</article></section></div>
   <div class="review-check"><label><input type="checkbox" id="review-confirm" ${r.status==='reviewed'?'checked':''}/> 我已逐项确认经历、技能和联系方式真实准确</label><small>修改内容后需重新审核；导出不代表已投递。</small></div>
   <div class="modal-footer studio-footer"><button class="button secondary" data-action="save-resume" data-id="${id}">保存修改</button><button class="button primary" data-action="review-resume" data-id="${id}">${icon('check')} 确认审核完成</button></div>`,true);
 }
@@ -293,7 +294,6 @@ async function printResume(id) {
   win.document.getElementById('print').addEventListener('click',requestPrint);
   if(win.document.readyState==='complete')requestPrint();
   win.opener=null;
-  closeModal();render();
  }catch(err){win.close();throw err;}
 }
 function importJob() {modal('导入真实岗位',`<form id="import-job-form" class="dialog-content"><div class="form-grid"><label>公司<input name="company" required maxlength="200"/></label><label>职位<input name="title" required maxlength="200"/></label><label>地点<input name="location" required maxlength="200"/></label><label>岗位原文链接<input name="url" type="url" required placeholder="https://..."/></label><label>地区<select name="region"><option value="cn">中国大陆</option><option value="ca">加拿大</option><option value="us">美国</option><option value="na">北美（国家未注明）</option><option value="other">其他</option></select></label><label>类型<select name="track"><option value="unknown">未注明</option><option value="campus">校招 / 实习</option><option value="experienced">社招</option></select></label></div><label>完整岗位描述<textarea name="description" required rows="10" maxlength="24000" placeholder="粘贴职责、要求和申请条件；不会自动绕过招聘网站登录"></textarea></label><button class="button primary" type="submit">保存到岗位库</button></form>`,true);}
@@ -319,7 +319,7 @@ const actions={
  'save-resume':async el=>{await saveCurrentResume(el.dataset.id);render();showResume(el.dataset.id,'edit');toast('简历已保存。内容变更后需要重新审核。');},
  'review-resume':async el=>{if(!$('#review-confirm').checked)throw new Error('请先逐项审核并勾选确认。');await saveCurrentResume(el.dataset.id,true);render();showResume(el.dataset.id,'export');toast('已审核，可以导出并自行投递。');},
  'edit-reviewed-resume':el=>showResume(el.dataset.id,'edit'),
- 'download-resume':el=>{const r=state.resumes.find(resume=>resume.id===el.dataset.id);if(r?.status!=='reviewed')throw new Error('请先逐项审核并勾选确认。');download(`FoundMyJob-${r.title.replace(/[<>:"/\\|?*]/g,'-')}.md`,orderResumeMarkdown(r.content,normalizeResumeLayout(r.layout)),'text/markdown;charset=utf-8');closeModal();render();toast('简历已导出。');},
+ 'download-resume':el=>{const r=state.resumes.find(resume=>resume.id===el.dataset.id);if(r?.status!=='reviewed')throw new Error('请先逐项审核并勾选确认。');download(`FoundMyJob-${r.title.replace(/[<>:"/\\|?*]/g,'-')}.md`,orderResumeMarkdown(r.content,normalizeResumeLayout(r.layout)),'text/markdown;charset=utf-8');toast('简历已导出。');},
  'print-resume':el=>printResume(el.dataset.id),
  'delete-resume':el=>modal('删除这份简历？',`<div class="dialog-content"><p>此简历及历史版本将被删除，投递记录保留。</p><button class="button danger" data-action="confirm-delete" data-id="${el.dataset.id}">确认删除</button></div>`),
  'confirm-delete':async el=>{await update('/api/resumes/delete',{id:el.dataset.id});closeModal();render();toast('简历已删除。');},

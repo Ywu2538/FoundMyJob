@@ -101,7 +101,7 @@ export class Store {
   editResume(id,{content,review,revision,layout}) {
     const r=this.get('resumes',id);if(!r)throw new Error('简历不存在。');
     const contentChanged=content!==r.content,nextLayout=normalizeResumeLayout(layout??r.layout);
-    const next={...r,content,layout:nextLayout,status:review?'reviewed':contentChanged?'draft':r.status,reviewedAt:review?new Date().toISOString():contentChanged?null:r.reviewedAt};
+    const next={...r,content,layout:nextLayout,status:review?'reviewed':contentChanged?'draft':r.status,reviewedAt:review?new Date().toISOString():contentChanged?null:r.reviewedAt,...(contentChanged?{notes:[],reviewTipsVersion:0}:{})};
     this.transaction(()=>{
       const change=this.db.prepare('UPDATE resumes SET data=?,revision=revision+1 WHERE id=? AND revision=?').run(JSON.stringify(next),id,revision);
       if(!change.changes)throw Object.assign(new Error('简历已被更新，请重新打开再编辑。'),{status:409});

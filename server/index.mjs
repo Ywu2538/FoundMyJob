@@ -17,6 +17,7 @@ files['/company-logos.js']='company-logos.js';
 files['/profile-track.js']='profile-track.js';
 files['/resume-markdown.js']='resume-markdown.js';
 files['/resume-layouts.js']='resume-layouts.js';
+files['/resume-review-tips.js']='resume-review-tips.js';
 files['/resume.css']='resume.css';
 for(const asset of Object.values(COMPANY_LOGOS))files[asset]=asset.slice(1);
 const types={'.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'};

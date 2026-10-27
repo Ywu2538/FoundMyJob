@@ -34,7 +34,7 @@ export class Providers {
     const r=await this.request(provider,'/chat/completions',{model,messages:[{role:'user',content:buildPrompt(profile,job,language)}],max_tokens:maxTokens,stream:false,...routing});
     if(r.choices?.[0]?.finish_reason==='length')throw new Error('模型输出被截断，请精简档案后重试。');
     const text=r.choices?.[0]?.message?.content;if(typeof text!=='string')throw new Error('模型未返回简历内容。');
-    const parsed=parseCursorOutput(JSON.stringify({type:'result',result:text}));
+    const parsed=parseCursorOutput(JSON.stringify({type:'result',result:text}),language);
     return {...parsed,mode:provider,model,usage:r.usage?{prompt_tokens:r.usage.prompt_tokens,completion_tokens:r.usage.completion_tokens}:null};
   }
 }
