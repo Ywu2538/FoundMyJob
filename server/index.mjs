@@ -13,6 +13,7 @@ import { profileSearchScope } from '../dist/core.js';
 const root=fileURLToPath(new URL('../dist/',import.meta.url));
 const files={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/core.js':'core.js','/styles.css':'styles.css','/favicon.svg':'favicon.svg'};
 files['/company-logos.js']='company-logos.js';
+files['/profile-track.js']='profile-track.js';
 for(const asset of Object.values(COMPANY_LOGOS))files[asset]=asset.slice(1);
 const types={'.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'};
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};

@@ -4,7 +4,20 @@ import vm from 'node:vm';
 import {readFileSync} from 'node:fs';
 import * as core from '../dist/core.js';
 import {profileFocusField,profileTrackFields} from '../dist/profile-track.js';
+import {Store} from '../server/db.mjs';
+import {createServer} from '../server/index.mjs';
 const {profileCompletion}=core;
+
+test('the local server serves the Profile module used by the browser',async()=>{
+  const store=new Store(':memory:'),server=createServer({store});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  try{
+    const response=await fetch(`http://127.0.0.1:${server.address().port}/profile-track.js`);
+    assert.equal(response.status,200);
+    assert.match(response.headers.get('content-type'),/javascript/);
+    assert.match(await response.text(),/export function profileTrackFields/);
+  }finally{await new Promise(resolve=>server.close(resolve));}
+});
 
 test('profile guidance follows the hiring track in Chinese and English',()=>{
   const campus=profileTrackFields('campus');
