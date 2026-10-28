@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Store} from '../server/db.mjs';
 import {createServer} from '../server/index.mjs';
-import {parseCursorOutput,buildPrompt,generateWithCursor} from '../server/cursor.mjs';
+import {parseCursorOutput,buildPrompt,generateWithCursor,runProcess} from '../server/cursor.mjs';
 import {DEFAULT_PROFILE,JOBS} from '../dist/data.js';
 import {mkdtemp,rm,readdir} from 'node:fs/promises';
 import os from 'node:os';
@@ -47,3 +47,10 @@ test('resume prompt distinguishes campus and experienced evidence without relabe
   assert.ok(experienced.includes('"track":"experienced"'));
 });
 test('Cursor adapter uses argument array, no force, and cleans isolated workspace',async()=>{const root=await mkdtemp(path.join(os.tmpdir(),'fmj-test-'));let called=false;try{const r=await generateWithCursor({profile:DEFAULT_PROFILE,job:JOBS[0],language:'zh'},{runtimeRoot:root,runner:async(command,args,options)=>{called=true;assert.ok(args.includes('--print'));assert.ok(args.includes('ask'));assert.ok(!args.includes('--force'));assert.ok(options.cwd.startsWith(root));return{stdout:JSON.stringify({type:'result',is_error:false,result:JSON.stringify({content:'# Safe',notes:[]})})};}});assert.ok(called);assert.equal(r.mode,'cursor');assert.deepEqual(await readdir(root),[]);}finally{await rm(root,{recursive:true,force:true});}});
+test('Cursor spawn permission errors explain the local launch failure',async()=>{
+ await assert.rejects(runProcess('agent',[],{spawnChild:()=>{throw Object.assign(new Error('denied'),{code:'EPERM'});}}),error=>{
+  assert.equal(error.code,'CURSOR_CLI_PERMISSION');
+  assert.match(error.message,/权限不足/);
+  return true;
+ });
+});

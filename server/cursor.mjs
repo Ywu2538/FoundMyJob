@@ -19,16 +19,22 @@ export function cursorExecutable() {
 }
 
 // Runs only after the local server's explicit Cursor capability check.
-export function runProcess(command, args, { cwd, timeout=120000, maxBytes=1048576 }={}) {
+function cursorStartError(error) {
+  if(['EPERM','EACCES'].includes(error?.code))return Object.assign(new Error('系统拒绝启动 Cursor CLI（权限不足）。请重新启动 FoundMyJob 后重试；若仍失败，请检查本机执行权限。'),{code:'CURSOR_CLI_PERMISSION'});
+  return new Error('无法启动 Cursor CLI。请安装并设置 CURSOR_CLI_PATH 为可执行文件路径。');
+}
+export function runProcess(command, args, { cwd, timeout=120000, maxBytes=1048576, spawnChild=spawn }={}) {
   return new Promise((resolve,reject)=>{
-    const child=spawn(command,args,{cwd,shell:false,windowsHide:true,stdio:['ignore','pipe','pipe']});
+    let child;
+    try{child=spawnChild(command,args,{cwd,shell:false,windowsHide:true,stdio:['ignore','pipe','pipe']});}
+    catch(error){reject(cursorStartError(error));return;}
     let stdout='',stderr='',bytes=0,settled=false;
     const finish=(error,value)=>{if(settled)return;settled=true;clearTimeout(timer);error?reject(error):resolve(value);};
     const timer=setTimeout(()=>{child.kill();finish(new Error('Cursor 响应超时，请检查 CLI 登录或网络后重试。'));},timeout);
     const capture=(channel,chunk)=>{bytes+=Buffer.byteLength(chunk);if(bytes>maxBytes){child.kill();finish(new Error('Cursor 返回内容超过限制。'));return;}if(channel==='out')stdout+=chunk;else stderr+=chunk;};
     child.stdout.setEncoding('utf8');child.stderr.setEncoding('utf8');
     child.stdout.on('data',chunk=>capture('out',chunk));child.stderr.on('data',chunk=>capture('err',chunk));
-    child.on('error',()=>finish(new Error('无法启动 Cursor CLI。请安装并设置 CURSOR_CLI_PATH 为可执行文件路径。')));
+    child.on('error',error=>finish(cursorStartError(error)));
     child.on('close',code=>code===0?finish(null,{stdout,stderr}):finish(new Error('Cursor CLI 调用失败。请在终端运行 agent status 检查登录、额度与网络。')));
   });
 }

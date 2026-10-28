@@ -17,6 +17,14 @@ async function app(fn,options={}) {
  const initial=(await request('/api/state')).data;const post=(p,b)=>request(p,b,{'X-FMJ-Token':initial.token});
  try{await fn({store,request,post,initial,profileId:initial.profiles[0].id});}finally{await new Promise(r=>server.close(r));}
 }
+async function waitForSync(request){
+ for(let i=0;i<100;i++){
+  const {data}=await request('/api/jobs/sync/status');
+  if(data.status!=='running')return data;
+  await new Promise(resolve=>setTimeout(resolve,5));
+ }
+ throw new Error('岗位同步未在测试期限内结束。');
+}
 test('SQLite persists a real profile and saved job through reopening, starts without fictional data',async()=>{
  const dir=await mkdtemp(path.join(os.tmpdir(),'fmj-db-')),filename=path.join(dir,'data.sqlite');
  try{let db=new Store(filename);assert.equal(db.snapshot().profiles[0].name,'');assert.equal(db.snapshot().jobs.length,0);db.editProfile(db.snapshot().profiles[0].id,profile,1);const j=manualJob(imported);db.addJob(j);db.db.prepare('INSERT INTO saved VALUES(?)').run(j.id);db.close();db=new Store(filename);assert.equal(db.snapshot().profiles[0].name,profile.name);assert.deepEqual(db.snapshot().saved,[j.id]);db.close();}finally{await rm(dir,{recursive:true,force:true});}
@@ -71,11 +79,37 @@ test('free-only mode checks live pricing and refuses paid/unknown models without
  const models=await p.models('openrouter');assert.deepEqual(models.filter(m=>m.free).map(m=>m.id),['free']);
  await assert.rejects(p.generate({profile,job:imported,language:'en',provider:'openrouter',model:'paid',freeOnly:true}),/免费/);assert.ok(calls.every(u=>u.endsWith('/models')));
 });
-test('job synchronization preserves previous data on failure and marks absent jobs inactive only on success',()=>app(async({store,post})=>{
+test('job synchronization preserves previous data on failure and marks absent jobs inactive only on success',()=>app(async({store,post,request})=>{
  const source=store.rows('sources')[0],j=normalizeJob({id:1,title:'Intern',location:{name:'Toronto'},content:'<p>Python &amp; SQL</p>',absolute_url:'https://example.com/job'},source);store.upsertJobs(source,[j]);
- await post('/api/jobs/sync',{});assert.equal(store.snapshot().jobs[0].active,true);assert.equal(store.get('sources',source.id).status,'同步失败');
+ assert.equal((await post('/api/jobs/sync',{})).status,202);assert.equal((await waitForSync(request)).status,'completed');assert.equal(store.snapshot().jobs[0].active,true);assert.equal(store.get('sources',source.id).status,'同步失败');
  store.upsertJobs(source,[]);assert.equal(store.snapshot().jobs[0].active,false);
 },{jobFetcher:async()=>{throw new Error('network');}}));
+test('saved jobs and generation remain usable while a source sync is waiting',async()=>{
+ let release;
+ const gate=new Promise(resolve=>{release=resolve;});
+ try{
+  await app(async({store,post,request,profileId})=>{
+   assert.equal((await post('/api/profile',{...profile,id:profileId})).status,200);
+   const job=manualJob(imported),source=store.rows('sources')[0];store.addJob(job);
+   assert.equal((await post('/api/jobs/save',{id:job.id,saved:true})).status,200);
+   const started=await post('/api/jobs/sync',{sourceId:source.id});
+   assert.equal(started.status,202);assert.equal(started.data.sync.total,1);
+   assert.equal((await request('/api/jobs/sync/status')).data.status,'running');
+   const state=(await request('/api/state')).data;
+   assert.ok(state.jobs.some(row=>row.id===job.id));assert.ok(state.saved.includes(job.id));
+   const generated=await post('/api/generate',{provider:'cursor',jobId:job.id,profileId,profileRevision:2,language:'en',model:'auto',requestId:'during-sync',consent:true});
+   assert.equal(generated.status,202);
+   for(let i=0;i<100;i++){
+    const task=(await request('/api/tasks/during-sync')).data;
+    if(task.status==='completed')break;
+    await new Promise(resolve=>setTimeout(resolve,5));
+   }
+   assert.equal((await request('/api/tasks/during-sync')).data.status,'completed');
+   assert.equal((await request('/api/jobs/sync/status')).data.status,'running');
+   release();assert.equal((await waitForSync(request)).status,'completed');
+  },{cursorEnabled:true,jobFetcher:async()=>{await gate;return [];},generator:async()=>({content:'# Test Candidate\n## Skills\n- Python',notes:[],mode:'cursor'})});
+ }finally{release?.();}
+});
 test('job parsing does not execute HTML or accept unsafe source/link input',async()=>{
  assert.equal(cleanText('&lt;p&gt;Hello&lt;/p&gt;<script>alert(1)</script>'),'Hello');
  assert.throws(()=>manualJob({...imported,url:'javascript:alert(1)'}));

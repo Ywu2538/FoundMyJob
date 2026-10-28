@@ -114,7 +114,14 @@ test('single company sync isolates sources, preserves results on failure, and cu
   const post=(url,body)=>fetch(base+url,{method:'POST',headers:{'Content-Type':'application/json','X-FMJ-Token':initial.token},body:JSON.stringify(body)});
   const row=normalizeJob({id:'7',title:'Engineer',description:'Python',url:'https://careers.tencent.com/jobdesc.html?postId=7'},s);
   store.upsertJobs(s,[row]);
-  assert.equal((await post('/api/jobs/sync',{sourceId:s.id})).status,200);
+  assert.equal((await post('/api/jobs/sync',{sourceId:s.id})).status,202);
+  let syncStatus;
+  for(let i=0;i<20;i++){
+   syncStatus=await(await fetch(base+'/api/jobs/sync/status')).json();
+   if(syncStatus.status!=='running')break;
+   await new Promise(resolve=>setTimeout(resolve,5));
+  }
+  assert.equal(syncStatus.status,'completed');
   assert.deepEqual(calls,[s.id]);assert.equal(store.snapshot().jobs[0].active,true);assert.equal(store.get('sources',s.id).count,1);
   assert.equal((await post('/api/jobs/sync',{sourceId:s.id})).status,429);
   assert.equal((await post('/api/jobs/sync',{sourceId:'missing'})).status,404);

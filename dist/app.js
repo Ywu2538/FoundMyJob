@@ -40,7 +40,7 @@ const icon = (name, cls='') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fil
 const $ = s=>document.querySelector(s);
 let state, JOBS=[], storageWarning='';
 const routes={dashboard:'工作台',jobs:'发现岗位',resumes:'我的简历',tracker:'投递追踪',profile:'求职画像',credits:'生成记录',settings:'AI 与数据设置'};
-const ui={profileId:null,drafts:{},recordProfileId:'',route:routes[location.hash.slice(1)]?location.hash.slice(1):'jobs',...defaultJobFilters(),companiesOpen:false,generating:false,modal:null,mobileMenu:false,models:[],provider:'cursor'};
+const ui={profileId:null,drafts:{},recordProfileId:'',route:routes[location.hash.slice(1)]?location.hash.slice(1):'jobs',...defaultJobFilters(),companiesOpen:false,generating:false,modal:null,mobileMenu:false,models:[],provider:'cursor',syncing:false,syncProgress:null,syncMonitor:null};
 let currentJobResults=[],jobsObserver;
 async function api(path,body) {
  const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(state?.token?{'X-FMJ-Token':state.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
@@ -141,6 +141,40 @@ function companyCountLabel(source,total) {
  return source.status==='部分同步'?'当前读取范围暂无岗位':'当前公开列表暂无岗位';
 }
 
+const syncPause=()=>new Promise(resolve=>setTimeout(resolve,3000));
+function syncProgressText(){
+ const completed=Number(ui.syncProgress?.completed),total=Number(ui.syncProgress?.total);
+ const count=Number.isFinite(completed)&&Number.isFinite(total)&&total>0?`${Math.min(completed,total)}/${total} · `:'';
+ return `正在同步岗位：${count}已收录岗位仍可浏览和选择。`;
+}
+function updateSyncProgress(progress){
+ ui.syncProgress=progress;
+ document.querySelectorAll('[data-sync-progress]').forEach(el=>{el.textContent=syncProgressText();});
+}
+function watchJobSync(){
+ if(ui.syncMonitor)return ui.syncMonitor;
+ ui.syncMonitor=(async()=>{
+  let failures=0,warned=false;
+  for(;;){
+   let progress;
+   try{progress=await api('/api/jobs/sync/status');failures=0;warned=false;}
+   catch(error){if(++failures>=3&&!warned){warned=true;toast('同步进度暂时无法读取，正在重试。');}await syncPause();continue;}
+   updateSyncProgress(progress);
+   if(progress.status==='running'){await syncPause();continue;}
+   ui.syncing=false;ui.syncProgress=null;
+   await refresh();render();
+   if(progress.status==='failed')toast(progress.error||'同步未完成，请查看来源状态。');
+   else if(progress.status==='completed')toast('岗位同步完成，列表已更新。');
+   return;
+  }
+ })().catch(async()=>{
+  ui.syncing=false;ui.syncProgress=null;
+  try{await refresh();render();}catch{}
+  toast('无法读取同步结果，请刷新页面查看。');
+ }).finally(()=>{ui.syncMonitor=null;});
+ return ui.syncMonitor;
+}
+
 function companyDirectory() {
  const sources=state.sources.filter(s=>s.featured),counts=new Map();
  for(const j of JOBS)if(j.active)counts.set(j.company,(counts.get(j.company)||0)+1);
@@ -225,7 +259,8 @@ function settingsPage() {
 function render() {
  jobsObserver?.disconnect();jobsObserver=null;
  const page={jobs:jobsPage,dashboard:dashboardPage,profile:profilePage,resumes:resumesPage,tracker:trackerPage,credits:creditsPage,settings:settingsPage}[ui.route];
- $('#app').innerHTML=`${sidebar()}<div class="app-content">${header()}<main id="main">${storageWarning?`<div class="notice warning">${e(storageWarning)}</div>`:''}${page()}<footer class="app-footer"><span>FoundMyJob<span class="brand-dot">.</span> <span class="footer-motto">属于你的机会，正在前方。</span></span><span>Made for your next chapter <span class="footer-star">✦</span></span></footer></main></div>`;
+ $('#app').innerHTML=`${sidebar()}<div class="app-content">${header()}<main id="main">${storageWarning?`<div class="notice warning">${e(storageWarning)}</div>`:''}${state.syncing||ui.syncing?`<p class="notice" role="status" data-sync-progress>${syncProgressText()}</p>`:''}${page()}<footer class="app-footer"><span>FoundMyJob<span class="brand-dot">.</span> <span class="footer-motto">属于你的机会，正在前方。</span></span><span>Made for your next chapter <span class="footer-star">✦</span></span></footer></main></div>`;
+ if(state.syncing||ui.syncing)document.querySelectorAll('[data-action="sync-jobs"]').forEach(el=>{el.disabled=true;});
  document.title=`${routes[ui.route]} · FoundMyJob`;
  if(ui.route==='jobs')observeJobList();
 }
@@ -332,11 +367,12 @@ const actions={
  'load-models':async()=>{toast('正在获取厂商模型列表…');ui.models=(await api('/api/models?provider='+ui.provider)).models;render();toast(`获取 ${ui.models.length} 个模型，请选择并保存。`);},
  'sync-jobs':async el=>{
   if(ui.syncing||state.syncing)throw new Error('岗位正在同步，请稍候。');
-  ui.syncing=true;render();toast('正在同步官网职位…');
-  let polling=false;
-  const timer=setInterval(async()=>{if(polling)return;polling=true;try{await refresh();if(['jobs','settings'].includes(ui.route)&&!ui.modal)render();}catch{}finally{polling=false;}},4000);
-  try{await update('/api/jobs/sync',el.dataset.id?{sourceId:el.dataset.id}:{});const succeeded=state.sources.filter(s=>['已同步','部分同步'].includes(s.status)).length;toast('同步结束：'+succeeded+' 个来源已有职位，库内 '+JOBS.filter(j=>j.active).length+' 条。未接通来源请查看公司状态。');}
-  finally{clearInterval(timer);ui.syncing=false;await refresh();render();}
+  ui.syncing=true;ui.syncProgress={status:'running'};render();
+  try{
+   const response=await api('/api/jobs/sync',el.dataset.id?{sourceId:el.dataset.id}:{});
+   updateSyncProgress(response.sync||response);
+   void watchJobSync();
+  }catch(error){ui.syncing=false;ui.syncProgress=null;render();throw error;}
  },
  'add-source':()=>modal('添加企业招聘板',`<form id="source-form" class="dialog-content"><label>招聘系统<select name="provider"><option value="greenhouse">Greenhouse</option><option value="lever">Lever</option></select></label><label>公司名称<input name="company" required maxlength="100"/></label><label>招聘板标识<input name="slug" required pattern="[a-zA-Z0-9_-]+" placeholder="例如 figma，不是完整网址" maxlength="80"/></label><p class="field-help">从公司官方招聘链接中找到 board token；此处不会抓取任意网址。</p><button class="button primary" type="submit">添加来源</button></form>`),
 };
@@ -382,7 +418,7 @@ window.addEventListener('beforeunload',event=>{if(Object.keys(ui.drafts).length)
 document.addEventListener('input',event=>{if(event.target.closest('#profile-form'))rememberProfileDraft();if(event.target.id==='resume-editor'){$('#resume-preview').innerHTML=markdownToHtml(event.target.value,normalizeResumeLayout(document.querySelector('input[name="resume-template"]:checked')?.value));$('#review-confirm').checked=false;}});
 
 async function boot() {
- try{await refresh();ui.provider=state.settings.provider;ui.freeOnly=state.settings.freeOnly===true;render();}
+ try{await refresh();ui.provider=state.settings.provider;ui.freeOnly=state.settings.freeOnly===true;ui.syncing=state.syncing;render();if(state.syncing)void watchJobSync();}
  catch(error){$('#app').innerHTML=`<main class="panel" style="margin:48px"><h1>本地后端未连接</h1><p>${e(error.message)}</p><p>请双击项目中的 Start-FoundMyJob.cmd 启动，再刷新页面。</p><button id="retry" class="button primary">重新连接</button></main>`;$('#retry').addEventListener('click',boot);}
 }
 boot();

@@ -38,6 +38,7 @@ function searchLocation(input,source={}) {
 export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_ALLOW_CURSOR==='1',generator=generateWithCursor,providers=new Providers(),jobFetcher=fetchJobs}={}) {
   if(process.env.FMJ_DEPLOYMENT&&process.env.FMJ_DEPLOYMENT!=='local')throw new Error('当前版本仅支持单用户本机运行；云部署需要独立账户、额度和密钥隔离服务。');
   const token=randomBytes(32).toString('hex');let busy=false,syncing=false;const lastSync=new Map();
+  let syncProgress={status:'idle',completed:0,total:0};
   const snapshot=()=>({...store.snapshot(),token,syncing,providers:providers.list(),capabilities:{cursor:cursorEnabled,platformCredits:false}});
   const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(data));};
   const server=http.createServer(async(req,res)=>{
@@ -49,9 +50,10 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
       const url=new URL(req.url,'http://localhost'),p=url.pathname;
       if(p==='/api/health'&&req.method==='GET')return json(res,200,{app:'foundmyjob',mode:'local',database:'sqlite'});
       if(p==='/api/state'&&req.method==='GET')return json(res,200,snapshot());
+      if(p==='/api/jobs/sync/status'&&req.method==='GET')return json(res,200,syncProgress);
       if(p==='/api/cursor/status'&&req.method==='GET') {
         if(!cursorEnabled)return json(res,200,{enabled:false,message:'本机 Cursor 开关未开启。请在本机 .env.local 配置 FMJ_ALLOW_CURSOR=1 后重启。'});
-        try{const cli=cursorExecutable();const {stdout}=await runProcess(cli.command,[...cli.args,'status','--format','json'],{timeout:10000});const s=JSON.parse(stdout);return json(res,200,{enabled:!!s.isAuthenticated,message:s.isAuthenticated?'Cursor CLI 已登录，可使用本机账号生成简历。':'Cursor CLI 尚未登录。请双击 Login-Cursor.cmd 完成官方登录。'});}catch{return json(res,200,{enabled:false,message:'未找到可用 CLI。请安装 Cursor CLI 并双击 Login-Cursor.cmd 登录。'});}
+        try{const cli=cursorExecutable();const {stdout}=await runProcess(cli.command,[...cli.args,'status','--format','json'],{timeout:10000});const s=JSON.parse(stdout);return json(res,200,{enabled:!!s.isAuthenticated,message:s.isAuthenticated?'Cursor CLI 已登录，可使用本机账号生成简历。':'Cursor CLI 尚未登录。请双击 Login-Cursor.cmd 完成官方登录。'});}catch(error){return json(res,200,{enabled:false,message:error.code==='CURSOR_CLI_PERMISSION'?error.message:'未找到可用 CLI。请安装 Cursor CLI 并双击 Login-Cursor.cmd 登录。'});}
       }
       if(p.startsWith('/api/tasks/')&&req.method==='GET') {const task=store.get('tasks',p.slice(11));if(!task)fail('任务不存在。',404);return json(res,200,task);}
       if(p==='/api/models'&&req.method==='GET') {if(req.headers['x-fmj-token']!==token)fail('本地会话验证失败，请刷新页面。',403);return json(res,200,{models:await providers.models(url.searchParams.get('provider'))});}
@@ -84,11 +86,19 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
           if(input.sourceId!==undefined){const source=store.get('sources',string(input.sourceId,160,true));if(!source)fail('岗位来源不存在。',404);sources=[source];}
           if(sources.some(s=>Date.now()-(lastSync.get(s.id)||0)<30000))fail('请等待 30 秒后再次同步同一来源。',429);
           syncing=true;
-          try{for(let i=0;i<sources.length;i+=3)await Promise.all(sources.slice(i,i+3).map(async s=>{
-            lastSync.set(s.id,Date.now());const attemptedAt=new Date().toISOString();store.put('sources',{...s,status:'同步中',attemptedAt});
-            try{const result=await jobFetcher(s);store.upsertJobs({...s,attemptedAt},Array.isArray(result)?result:result.jobs,Array.isArray(result)?{}:result);}
-            catch(error){store.put('sources',{...s,attemptedAt,status:error.code==='SOURCE_PENDING'?'待接通':'同步失败',error:s.provider==='official'?syncError(error):'网络或接口异常，已保留上次岗位。'});}
-          }));}finally{syncing=false;}
+          syncProgress={status:'running',completed:0,total:sources.length,startedAt:new Date().toISOString()};
+          void Promise.resolve().then(async()=>{
+            for(let i=0;i<sources.length;i+=3)await Promise.all(sources.slice(i,i+3).map(async s=>{
+              lastSync.set(s.id,Date.now());const attemptedAt=new Date().toISOString();store.put('sources',{...s,status:'同步中',attemptedAt});
+              try{const result=await jobFetcher(s);store.upsertJobs({...s,attemptedAt},Array.isArray(result)?result:result.jobs,Array.isArray(result)?{}:result);}
+              catch(error){store.put('sources',{...s,attemptedAt,status:error.code==='SOURCE_PENDING'?'待接通':'同步失败',error:s.provider==='official'?syncError(error):'网络或接口异常，已保留上次岗位。'});}
+              syncProgress={...syncProgress,completed:syncProgress.completed+1};
+            }));
+            syncProgress={...syncProgress,status:'completed'};
+          }).catch(error=>{syncProgress={...syncProgress,status:'failed',error:syncError(error)};}).finally(()=>{
+            syncing=false;syncProgress={...syncProgress,finishedAt:new Date().toISOString()};
+          });
+          return json(res,202,{status:'running',sync:syncProgress});
         }else if(p==='/api/applications') {store.track(input.jobId,input.profileId);
         }else if(p==='/api/applications/status') {
           const a=store.get('applications',input.id);if(!a)fail('投递记录不存在。');const status=enumeration(input.status,['准备中','已投递','面试中','已结束']);
@@ -124,7 +134,7 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
   });
   // Recover only after binding succeeds; a second launch on an occupied port must not interrupt tasks.
   server.on('listening',()=>store.recoverTasks());
-  server.on('close',()=>{if(!busy)store.close();else {const t=setInterval(()=>{if(!busy){clearInterval(t);store.close();}},100);t.unref();}});
+  server.on('close',()=>{if(!busy&&!syncing)store.close();else {const t=setInterval(()=>{if(!busy&&!syncing){clearInterval(t);store.close();}},100);t.unref();}});
   return server;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
