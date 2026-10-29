@@ -139,3 +139,31 @@ test('three location preferences survive create, copy, save and reject invalid v
   assert.equal((await post('/api/profiles/create',{label:'Invalid',searchScope:'invalid'})).status,400);
   assert.equal((await post('/api/profiles/save',{...store.profile(id),searchScope:'invalid'})).status,400);
 }));
+
+test('structured preferences survive save and copy, reject inconsistent cities, and allow clearing legacy text',()=>app(async({post,store,id})=>{
+ const prefs={country:'ca',city:'多伦多',work:'onsite'};
+ const saved=await post('/api/profiles/save',{...candidate,id,revision:1,searchScope:'all',preferences:'Toronto，onsite',jobPreferences:prefs});
+ assert.equal(saved.status,200);
+ let p=store.profile(id);
+ assert.deepEqual(p.jobPreferences,{country:'ca',city:'Toronto',work:'onsite'});assert.equal(p.searchScope,'overseas');assert.equal(p.market,'ca');
+ const copy=await post('/api/profiles/create',{copyFrom:id,label:'Copy'});
+ assert.deepEqual(store.profile(copy.data.createdProfileId).jobPreferences,p.jobPreferences);
+ const domestic=await post('/api/profiles/create',{copyFrom:id,label:'Domestic',searchScope:'domestic',market:'cn'});
+ assert.equal(store.profile(domestic.data.createdProfileId).jobPreferences.country,'');
+ assert.equal(store.profile(domestic.data.createdProfileId).searchScope,'domestic');
+ for(const jobPreferences of [{...prefs,country:'us'},{...prefs,work:'invalid'},{...prefs,country:'invalid'},{...prefs,city:'a'.repeat(121)},{city:'Unknown City',country:'',work:''}])assert.equal((await post('/api/profiles/save',{...p,jobPreferences})).status,400);
+ assert.equal(store.profile(id).revision,p.revision);
+ assert.equal((await post('/api/profiles/save',{...p,jobPreferences:{country:'ca',city:'Vancouver',work:'hybrid'}})).status,200);
+ p=store.profile(id);assert.equal(p.jobPreferences.city,'Vancouver');
+ assert.equal((await post('/api/profiles/save',{...p,searchScope:'all',market:'',jobPreferences:{country:'',city:'',work:''}})).status,200);
+ p=store.profile(id);assert.equal(p.preferences,'Toronto，onsite');assert.deepEqual(p.jobPreferences,{country:'',city:'',work:''});assert.equal(p.searchScope,'all');
+}));
+
+test('stored legacy preferences are resolved on read without rewriting the profile or revision',()=>app(async({store,post,id})=>{
+ store.editProfile(id,{...candidate,market:'overseas',searchScope:'overseas',preferences:'Toronto，onsite',jobPreferences:null},1);
+ const before=store.get('profiles',id),p=store.profile(id);
+ assert.deepEqual(p.jobPreferences,{country:'ca',city:'Toronto',work:'onsite'});
+ assert.deepEqual(store.get('profiles',id),before);
+ assert.equal((await post('/api/profiles/save',{...p,jobPreferences:{country:'ca',city:'Kingston',work:'remote'}})).status,200);
+ assert.equal(store.profile(id).jobPreferences.city,'Kingston');
+}));

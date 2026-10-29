@@ -39,7 +39,7 @@ const companies = [
   ['fulltruck','满帮集团','https://jobs.fulltruckalliance.com/social-recruitment/manbang/46269/', 'moka'],
 ];
 export const COMPANY_SOURCES = companies.map(([slug,company,careersUrl,adapter,note])=>({
-  id:`official:${slug}`,provider:'official',slug,company,careersUrl,adapter,note:note||'',featured:true,
+  id:`official:${slug}`,provider:'official',slug,company,careersUrl,adapter,note:note||'',featured:true,directoryScope:'domestic',
 }));
 export function officialSource(slug) {
   const source=COMPANY_SOURCES.find(s=>s.slug===slug);

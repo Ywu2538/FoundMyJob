@@ -11,5 +11,6 @@ node_modules/
 .cursor-install.ps1
 *.log
 artifacts/
+output/
 .sites-local/
 .openai/*.tar.gz

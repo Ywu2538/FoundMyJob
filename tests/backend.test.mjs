@@ -117,6 +117,61 @@ test('job parsing does not execute HTML or accept unsafe source/link input',asyn
  assert.equal(matchJob({tags:[],track:'unknown',category:'其他'},{skills:[],target:'',track:'campus'}).score,0);
 });
 
+test('sync refills available slots while slow sources remain active, with bounded concurrency and truthful counts',async()=>{
+ let release,resolveFourth;const gate=new Promise(resolve=>{release=resolve;}),fourth=new Promise(resolve=>{resolveFourth=resolve;});
+ let active=0,peak=0;
+ await app(async({store,post,request})=>{
+  store.db.exec('DELETE FROM sources');
+  for(let i=0;i<5;i++)store.put('sources',{id:`source-${i}`,company:`Company ${i}`,provider:'greenhouse',slug:`source-${i}`,status:'未同步',count:0});
+  try{
+   assert.equal((await post('/api/jobs/sync',{})).status,202);
+   await Promise.race([fourth,new Promise((_,reject)=>{const timer=setTimeout(()=>reject(Error('free slot was not refilled')),1000);timer.unref();})]);
+   const progress=(await request('/api/jobs/sync/status')).data;
+   assert.equal(progress.status,'running');assert.equal(progress.total,5);
+   assert.equal(progress.sources[0].status,'running');assert.equal(progress.sources[1].status,'running');
+   assert.equal(progress.sources[0].requestsCompleted,1);assert.ok(progress.completed>=1);assert.equal(peak,3);
+   assert.equal((await post('/api/jobs/sync',{})).status,409);
+  }finally{release();}
+  const result=await waitForSync(request);
+  assert.equal(result.completed,5);assert.equal(result.succeeded,3);assert.equal(result.partial,1);assert.equal(result.failed,1);assert.equal(result.pending,1);assert.equal(result.jobsReceived,3);
+  assert.ok(result.sources.every(source=>source.finishedAt));assert.ok(result.finishedAt);
+  assert.equal((await request('/api/state')).data.jobs.length,3);
+ },{jobFetcher:async(source,{onProgress})=>{
+  active++;peak=Math.max(peak,active);onProgress({requestsStarted:1,requestsCompleted:1});
+  try{
+   if(['source-0','source-1'].includes(source.id))await gate;
+   if(source.id==='source-3'){resolveFourth();throw Error('offline');}
+   if(source.id==='source-4')throw Object.assign(Error('not connected'),{code:'SOURCE_PENDING'});
+   const job=normalizeJob({id:source.id,title:'Engineer',description:'SQL',url:'https://example.com/'+source.id},source);
+   return {jobs:[job],complete:source.id!=='source-2'};
+  }finally{active--;}
+ }});
+});
+
+test('fetch progress reports request activity without changing imported results',async()=>{
+ const events=[];
+ const jobs=await fetchJobs({id:'greenhouse:test',provider:'greenhouse',slug:'test',company:'Test'},{onProgress:event=>events.push(event),fetcher:async()=>Response.json({jobs:[{id:1,title:'Engineer',content:'SQL',absolute_url:'https://example.com/job'}]})});
+ assert.equal(jobs.length,1);assert.deepEqual(events,[{requestsStarted:1,requestsCompleted:0},{requestsStarted:1,requestsCompleted:1}]);
+});
+
+test('sync follows the browsing scope, retains custom boards and supports explicit company or all-source updates',async()=>{
+ for(const [input,count,check] of [
+  [{region:'cn'},37,calls=>calls.every(s=>s.directoryScope==='domestic'||s.id==='greenhouse:custom')],
+  [{region:'ca'},8,calls=>calls.every(s=>s.directoryScope!=='domestic')],
+  [{region:''},44,()=>true],
+  [{region:'cn',all:true},44,()=>true],
+  [{region:'cn',sourceId:'workday:bmo'},1,calls=>calls[0].id==='workday:bmo'],
+ ]){
+  const calls=[];
+  await app(async({store,post,request})=>{
+   store.put('sources',{id:'greenhouse:custom',company:'Custom board',provider:'greenhouse',slug:'custom',status:'未同步',count:0});
+   const response=await post('/api/jobs/sync',input);assert.equal(response.status,202);
+   assert.equal(response.data.sync.total,count);
+   await waitForSync(request);assert.equal(calls.length,count);assert.ok(check(calls));
+  },{jobFetcher:async source=>{calls.push(source);return [];}});
+ }
+});
+
 test('web-discovered jobs retain pending provenance, deduplicate URLs and survive board sync',()=>app(async({store,post,request})=>{
   const lead={...imported,discoveredFromWeb:true};
   assert.equal((await post('/api/jobs/import',lead)).status,200);

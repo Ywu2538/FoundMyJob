@@ -11,7 +11,7 @@ test('all 36 pictured companies register idempotently without creating pretend j
  const store=new Store(':memory:');
  try{
   assert.equal(COMPANY_SOURCES.length,36);assert.equal(new Set(COMPANY_SOURCES.map(s=>s.id)).size,36);
-  assert.equal(store.rows('sources').filter(s=>s.featured).length,36);assert.equal(store.snapshot().jobs.length,0);
+  assert.equal(store.rows('sources').filter(s=>s.featured&&s.directoryScope==='domestic').length,36);assert.equal(store.snapshot().jobs.length,0);
   for(const s of COMPANY_SOURCES)assert.equal(new URL(s.careersUrl).protocol,'https:');
   for(const name of ['淘宝闪购','飞猪','度小满','掌阅科技','交银金科'])assert.ok(COMPANY_SOURCES.some(s=>s.company===name));
  }finally{store.close();}
@@ -126,7 +126,7 @@ test('single company sync isolates sources, preserves results on failure, and cu
   assert.equal((await post('/api/jobs/sync',{sourceId:s.id})).status,429);
   assert.equal((await post('/api/jobs/sync',{sourceId:'missing'})).status,404);
   assert.equal((await post('/api/sources',{provider:'lever',slug:'example',company:'Example'})).status,200);
-  assert.equal(store.rows('sources').length,40);
+  assert.equal(store.rows('sources').length,initial.sources.length+1);
  }finally{await new Promise(r=>server.close(r));}
 });
 test('company selection composes with keyword, region and existing filters',()=>{

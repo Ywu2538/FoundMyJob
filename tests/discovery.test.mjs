@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {discoverySummary,filterJobs,matchJob,matchesTarget,jobInRegion,defaultJobFilters,discoveryGroups,profileSearchScope} from '../dist/core.js';
+import {discoverySummary,filterJobs,matchJob,matchesTarget,jobInRegion,defaultJobFilters,discoveryGroups,profileSearchScope,canonicalSearchQuery} from '../dist/core.js';
 
 const profile={target:'数据分析师',skills:['Python','SQL'],track:'experienced'};
 const base={title:'Data Analyst',company:'Example',tags:['Python','SQL'],track:'experienced',category:'数据',location:'Toronto',region:'na',active:true};
@@ -35,6 +35,31 @@ test('data engineering is distinct from data analysis; compound targets retain b
   assert.equal(matchesTarget({title:'Data Engineer'},'Data Engineer / Software Engineer'),true);
   assert.equal(jobInRegion({...base,location:'Hangzhou',region:'other'},'cn'),true);
   assert.equal(jobInRegion({...base,location:'香港',region:'other'},'cn'),false);
+});
+
+test('target titles rank before unrelated titles sharing incidental tools or career stage',()=>{
+ const profile={target:'Data Engineer',skills:['Python','SQL'],track:'experienced'};
+ const jobs=[{...base,id:'unrelated',title:'Risk Manager',tags:['Python','SQL']},{...base,id:'target',title:'Data Engineer',tags:[],track:'unknown'}];
+ assert.deepEqual(filterJobs(jobs,profile,{sort:'match'}).map(j=>j.id),['target','unrelated']);
+});
+
+test('bilingual role searches keep official results visible without dropping explicit qualifiers or other filters',()=>{
+ const target={...profile,target:'Data Engineer'};
+ const jobs=[{...base,id:'en',company:'BMO',title:'Senior Data Engineer',work:'未注明'},
+  {...base,id:'zh',company:'BMO',title:'数据开发工程师',work:'未注明'},
+  {...base,id:'analyst',company:'BMO',title:'Data Analyst'},
+  {...base,id:'elsewhere',company:'BMO',title:'Data Engineer',location:'Vancouver'},
+  {...base,id:'other-company',company:'Other',title:'Data Engineer'},
+  {...base,id:'hybrid',company:'BMO',title:'Data Engineer',work:'混合办公'}];
+ const filters={company:'BMO',region:'ca',city:'Toronto',work:'现场办公',workUnknown:true};
+ for(const query of ['数据工程师','數據工程師','数仓工程师','Data Engineer','data engineering',' DATA   ENGINEER ']){
+  assert.equal(canonicalSearchQuery(query),'data engineer');
+  assert.deepEqual(filterJobs(jobs,target,{...filters,query}).map(j=>j.id),['en','zh'],query);
+ }
+ assert.deepEqual(filterJobs(jobs,target,{...filters,query:'Senior Data Engineer'}).map(j=>j.id),['en']);
+ assert.deepEqual(filterJobs(jobs,target,{...filters,query:'Data Engineer Python'}),[]);
+ assert.equal(canonicalSearchQuery('BMO 数据工程师'),'BMO 数据工程师');
+ assert.equal(filterJobs(jobs,target,{...filters,query:'数据工程师',workUnknown:false}).length,0);
 });
 
 test('default view batches 25 jobs while sorting and profile location retain every active result',()=>{

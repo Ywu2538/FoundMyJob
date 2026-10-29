@@ -4,9 +4,11 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { profileSearchScope } from '../dist/core.js';
 import {normalizeResumeLayout} from '../dist/resume-layouts.js';
+import {resolvedJobPreferences} from '../dist/job-preferences.js';
 import { COMPANY_SOURCES } from './company-sources.mjs';
+import {OVERSEAS_SOURCES} from './overseas-sources.mjs';
 
-export const blankProfile = () => ({label:'我的求职画像',market:'',resumeLanguage:'zh',name:'',email:'',phone:'',location:'',target:'',track:'campus',skills:[],education:'',experience:'',projects:'',preferences:''});
+export const blankProfile = () => ({label:'我的求职画像',market:'',resumeLanguage:'zh',name:'',email:'',phone:'',location:'',target:'',track:'campus',skills:[],education:'',experience:'',projects:'',preferences:'',jobPreferences:null});
 export class Store {
   constructor(filename = path.resolve('.runtime/foundmyjob.sqlite')) {
     if (filename !== ':memory:') mkdirSync(path.dirname(filename), {recursive:true});
@@ -23,7 +25,7 @@ export class Store {
     this.db.prepare('INSERT OR IGNORE INTO config(key,data) VALUES(?,?)').run('settings',JSON.stringify({language:'zh',provider:'cursor',model:'auto'}));
     if (this.db.prepare('PRAGMA user_version').get().user_version < 2) this.migrateProfiles();
     for (const s of [{id:'greenhouse:figma',provider:'greenhouse',slug:'figma',company:'Figma'},{id:'greenhouse:imc',provider:'greenhouse',slug:'imc',company:'IMC'},{id:'greenhouse:towerresearchcapital',provider:'greenhouse',slug:'towerresearchcapital',company:'Tower Research Capital'}]) this.db.prepare('INSERT OR IGNORE INTO sources VALUES(?,?)').run(s.id,JSON.stringify({...s,status:'未同步',count:0}));
-    for(const source of COMPANY_SOURCES){
+    for(const source of [...COMPANY_SOURCES,...OVERSEAS_SOURCES]){
       const previous=this.get('sources',source.id);
       const updated=previous&&previous.adapter!==source.adapter?{status:'未同步',error:null,syncNote:''}:{};
       this.put('sources',{status:source.adapter==='pending'?'待接通':'未同步',count:0,...previous,...source,...updated});
@@ -52,7 +54,7 @@ export class Store {
   profile(id,{allowArchived=false}={}) {
     const profile=typeof id==='string'?this.get('profiles',id):null;
     if(!profile||(!allowArchived&&profile.archived))throw Object.assign(new Error('求职画像不存在或已归档，请重新选择。'),{status:404});
-    return {...profile,searchScope:profileSearchScope(profile)};
+    return {...profile,jobPreferences:resolvedJobPreferences(profile),searchScope:profileSearchScope(profile)};
   }
   createProfile(fields) {
     const {revision,...content}=fields;
@@ -80,15 +82,16 @@ export class Store {
   put(table,data) {this.db.prepare(`INSERT INTO ${table}(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`).run(data.id,JSON.stringify(data));return data;}
   config(key,data,revision) {const r=this.db.prepare('UPDATE config SET data=?,revision=revision+1 WHERE key=? AND revision=?').run(JSON.stringify(data),key,revision);if(!r.changes)throw Object.assign(new Error('数据已在其他窗口更新，请刷新后重试。'),{status:409});}
   transaction(fn) {this.db.exec('BEGIN IMMEDIATE');try{const r=fn();this.db.exec('COMMIT');return r;}catch(e){this.db.exec('ROLLBACK');throw e;}}
-  snapshot() {return {version:3,profiles:this.rows('profiles').map(p=>({...p,searchScope:profileSearchScope(p)})),settings:this.get('config','settings'),jobs:this.db.prepare('SELECT data,active FROM jobs').all().map(r=>({...JSON.parse(r.data),active:!!r.active})),saved:this.db.prepare('SELECT job_id FROM saved').all().map(r=>r.job_id),resumes:this.rows('resumes').reverse(),applications:this.rows('applications').reverse(),sources:this.rows('sources'),tasks:this.rows('tasks').reverse().slice(0,50)};}
-  upsertJobs(source,jobs,{complete=true,total,note=''}={}) {
+  snapshot() {return {version:3,profiles:this.rows('profiles').map(p=>({...p,jobPreferences:resolvedJobPreferences(p),searchScope:profileSearchScope(p)})),settings:this.get('config','settings'),jobs:this.db.prepare('SELECT data,active FROM jobs').all().map(r=>({...JSON.parse(r.data),active:!!r.active})),saved:this.db.prepare('SELECT job_id FROM saved').all().map(r=>r.job_id),resumes:this.rows('resumes').reverse(),applications:this.rows('applications').reverse(),sources:this.rows('sources'),tasks:this.rows('tasks').reverse().slice(0,50)};}
+  upsertJobs(source,jobs,{complete=true,total,note='',closedIds=[],query}={}) {
     if(!Array.isArray(jobs)||jobs.some(j=>!j.id||j.source!==source.id||!j.title||!j.url)||new Set(jobs.map(j=>j.id)).size!==jobs.length)throw new Error('岗位数据无效，已保留上次结果。');
     this.transaction(()=>{
       if(complete)this.db.prepare('UPDATE jobs SET active=0 WHERE source_id=?').run(source.id);
       const q=this.db.prepare('INSERT INTO jobs(id,source_id,active,data) VALUES(?,?,1,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,active=1');
       for(const j of jobs)q.run(j.id,source.id,JSON.stringify(j));
+      for(const id of closedIds)this.db.prepare('UPDATE jobs SET active=0 WHERE id=? AND source_id=?').run(id,source.id);
       const active=this.db.prepare('SELECT count(*) AS n FROM jobs WHERE source_id=? AND active=1').get(source.id).n;
-      this.put('sources',{...source,status:complete?'已同步':'部分同步',count:active,lastFetchedCount:jobs.length,total:total??null,complete,syncNote:note,syncedAt:new Date().toISOString(),error:null});
+      this.put('sources',{...source,status:complete?'已同步':'部分同步',count:active,lastFetchedCount:jobs.length,total:total??null,complete,syncNote:note,lastQuery:query||null,syncedAt:new Date().toISOString(),error:null});
     });
   }
   addJob(job) {

@@ -2,22 +2,32 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, createHash } from 'node:crypto';
+import {analyzeJobEvidence} from '../dist/job-evidence.js';
 import { generateWithCursor, runProcess, cursorExecutable, buildPrompt } from './cursor.mjs';
 import { Store, blankProfile } from './db.mjs';
 import { fetchJobs, manualJob } from './jobs.mjs';
 import { Providers } from './providers.mjs';
 import {COMPANY_LOGOS} from '../dist/company-logos.js';
+import {OVERSEAS_COMPANIES} from '../dist/company-catalog.js';
 import { profileSearchScope } from '../dist/core.js';
 import {DEFAULT_RESUME_LAYOUT,isResumeLayout} from '../dist/resume-layouts.js';
+import {JOB_COUNTRIES,WORK_PREFERENCES,resolvedJobPreferences,cityEntry,canonicalCity} from '../dist/job-preferences.js';
+import {overseasSearchQuery} from './overseas-sources.mjs';
 
 const root=fileURLToPath(new URL('../dist/',import.meta.url));
+const overseasSourceIds=new Set(OVERSEAS_COMPANIES.map(company=>company.id).filter(Boolean));
 const files={'/':'index.html','/index.html':'index.html','/app.js':'app.js','/core.js':'core.js','/styles.css':'styles.css','/favicon.svg':'favicon.svg'};
 files['/company-logos.js']='company-logos.js';
+files['/company-catalog.js']='company-catalog.js';
+files['/i18n.js']='i18n.js';
+files['/job-preferences.js']='job-preferences.js';
 files['/profile-track.js']='profile-track.js';
 files['/resume-markdown.js']='resume-markdown.js';
 files['/resume-layouts.js']='resume-layouts.js';
 files['/resume-review-tips.js']='resume-review-tips.js';
+files['/job-evidence-view.js']='job-evidence-view.js';
+files['/sync-progress.js']='sync-progress.js';
 files['/resume.css']='resume.css';
 for(const asset of Object.values(COMPANY_LOGOS))files[asset]=asset.slice(1);
 const types={'.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'};
@@ -31,9 +41,30 @@ function syncError(error) {
   return String(error.message).slice(0,240);
 }
 function searchLocation(input,source={}) {
-  const market=enumeration(input.market??source.market??'',['','cn','ca','us','other','overseas']);
+  const market=enumeration(input.market??source.market??'',['',...Object.keys(JOB_COUNTRIES),'other','overseas']);
   const searchScope=enumeration(input.searchScope??(input.market!==undefined?profileSearchScope({market}):profileSearchScope(source)),['domestic','overseas','all']);
-  return {searchScope,market:searchScope==='all'?'':searchScope==='domestic'?'cn':['ca','us','other','overseas'].includes(market)?market:'overseas'};
+  return {searchScope,market:searchScope==='all'?'':searchScope==='domestic'?'cn':market&&market!=='cn'?market:'overseas'};
+}
+function searchPreferences(input,source={}){
+  const location=searchLocation(input,source),explicit=input.jobPreferences!=null;
+  let prefs;
+  if(explicit){
+    const p=input.jobPreferences;
+    if(typeof p!=='object'||Array.isArray(p))fail('求职偏好格式无效。');
+    const country=enumeration(p.country,['',...Object.keys(JOB_COUNTRIES)]),city=string(p.city,120),work=enumeration(p.work,['',...Object.keys(WORK_PREFERENCES)]);
+    const entry=cityEntry(city,country)||cityEntry(city);
+    if(entry&&country&&entry.country!==country)fail('城市与所选国家不一致。');
+    if(city&&!country&&!entry)fail('请先选择城市所在国家。');
+    prefs={country:country||entry?.country||'',city:canonicalCity(city,country),work};
+  }else{
+    prefs=resolvedJobPreferences(input.preferences!==undefined?{...source,...input,jobPreferences:null}:source);
+    // A scope-only change deliberately clears an incompatible copied/legacy location.
+    const changedScope=input.searchScope!==undefined&&input.searchScope!==profileSearchScope(source);
+    const changedMarket=input.market!==undefined&&input.market!==source.market;
+    if(prefs.country&&((changedScope&&(location.searchScope==='all'||(location.searchScope==='domestic')!==(prefs.country==='cn')))||(changedMarket&&location.market!==prefs.country)))prefs={...prefs,country:'',city:''};
+  }
+  if(prefs.country){location.searchScope=prefs.country==='cn'?'domestic':'overseas';location.market=prefs.country;}
+  return {...location,jobPreferences:prefs};
 }
 export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_ALLOW_CURSOR==='1',generator=generateWithCursor,providers=new Providers(),jobFetcher=fetchJobs}={}) {
   if(process.env.FMJ_DEPLOYMENT&&process.env.FMJ_DEPLOYMENT!=='local')throw new Error('当前版本仅支持单用户本机运行；云部署需要独立账户、额度和密钥隔离服务。');
@@ -63,37 +94,76 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
         let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>256000)fail('请求过大。',413);}let input;try{input=JSON.parse(body);}catch{fail('请求 JSON 无效。');}if(!input||typeof input!=='object'||Array.isArray(input))fail('请求格式无效。');
         if(p==='/api/profiles/create') {
           const source=input.copyFrom?store.profile(string(input.copyFrom,80,true)):blankProfile();
-          const profile=store.createProfile({...source,label:string(input.label,100,true),...searchLocation(input,source),resumeLanguage:enumeration(input.resumeLanguage??source.resumeLanguage,['zh','en'])});
+          const profile=store.createProfile({...source,label:string(input.label,100,true),...searchPreferences(input,source),resumeLanguage:enumeration(input.resumeLanguage??source.resumeLanguage,['zh','en'])});
           return json(res,201,{...snapshot(),createdProfileId:profile.id});
         }else if(p==='/api/profiles/archive') {
           if(typeof input.archived!=='boolean')fail('归档选项无效。');
           store.archiveProfile(string(input.id,80,true),input.archived,input.revision);
         }else if(p==='/api/profile'||p==='/api/profiles/save') {
-          const profile=blankProfile();for(const k of Object.keys(profile))if(k!=='skills')profile[k]=string(input[k],['education','experience','projects','preferences'].includes(k)?12000:200,['name','education'].includes(k));
-          profile.label=string(input.label,100,true);Object.assign(profile,searchLocation(input));enumeration(profile.resumeLanguage,['zh','en']);
+          const profile=blankProfile();for(const k of Object.keys(profile))if(!['skills','jobPreferences'].includes(k))profile[k]=string(input[k],['education','experience','projects','preferences'].includes(k)?12000:200,['name','education'].includes(k));
+          profile.label=string(input.label,100,true);Object.assign(profile,searchPreferences(input,store.profile(input.id)));enumeration(profile.resumeLanguage,['zh','en']);
           enumeration(profile.track,['campus','experienced']);if(!Array.isArray(input.skills)||input.skills.length>50)fail('最多填写 50 项技能。');profile.skills=[...new Set(input.skills.map(s=>string(s,100,true)))];store.profile(input.id);store.editProfile(input.id,profile,input.revision);
         }else if(p==='/api/settings') {
           const provider=enumeration(input.provider,['cursor',...providers.list().map(p=>p.id)]),language=enumeration(input.language,['zh','en']);
           const model=string(input.model,200,true);store.config('settings',{provider,language,model,freeOnly:input.freeOnly===true},input.revision);
         }else if(p==='/api/credentials') {if(input.remove)providers.clearKey(input.provider);else providers.setKey(input.provider,input.key);
+        }else if(p==='/api/jobs/match') {
+          const profile=store.profile(string(input.profileId,80,true),{allowArchived:true});
+          if(input.profileRevision!==profile.revision)fail('画像已更新，请刷新后重新对照。',409);
+          const job=store.get('jobs',string(input.jobId,500,true));if(!job)fail('岗位不存在。',404);
+          const jobVersion=createHash('sha256').update(JSON.stringify([job.description,job.requirements,job.descriptionKind])).digest('hex');
+          return json(res,200,{...analyzeJobEvidence(job,profile),profileId:profile.id,profileRevision:profile.revision,jobId:job.id,jobVersion,computedAt:new Date().toISOString()});
         }else if(p==='/api/jobs/import') {store.addJob(manualJob(input));
         }else if(p==='/api/jobs/save') {if(!store.get('jobs',input.id))fail('岗位不存在。');if(input.saved===true)store.db.prepare('INSERT OR IGNORE INTO saved VALUES(?)').run(input.id);else store.db.prepare('DELETE FROM saved WHERE job_id=?').run(input.id);
         }else if(p==='/api/sources') {
           const provider=enumeration(input.provider,['greenhouse','lever']),slug=string(input.slug,80,true),company=string(input.company,100,true);if(!/^[a-zA-Z0-9_-]+$/.test(slug))fail('招聘板标识仅支持字母、数字、横线和下划线。');const id=`${provider}:${slug}`,existing=store.get('sources',id);if(!existing&&store.rows('sources').filter(s=>!s.featured).length>=50)fail('最多添加 50 个自定义岗位源。');store.put('sources',{status:'未同步',count:0,...existing,id,provider,slug,company});
-        }else if(p==='/api/jobs/sync') {
+        }else if(p==='/api/jobs/sync'||p==='/api/jobs/search') {
           if(syncing)fail('岗位正在同步。',409);
+          const profile=input.profileId?store.profile(string(input.profileId,80,true)):null;
+          const query=overseasSearchQuery(string(input.query??profile?.target??'data engineer',160)||'data engineer');
+          if(input.all!==undefined&&typeof input.all!=='boolean')fail('同步范围无效。');
+          const region=input.region===undefined?undefined:enumeration(input.region,['','cn','overseas','ca','us','jp','gb','fr','au','sg','na','other']);
+          const scope=region===undefined?profileSearchScope(profile||{}):region===''?'all':region==='cn'?'domestic':'overseas';
           let sources=store.rows('sources');
+          if(p==='/api/jobs/search')sources=sources.filter(s=>s.provider==='workday');
+          else if(input.all!==true&&input.sourceId===undefined){
+            if(scope==='domestic')sources=sources.filter(s=>s.directoryScope!=='overseas'&&!overseasSourceIds.has(s.id));
+            if(scope==='overseas')sources=sources.filter(s=>s.directoryScope!=='domestic');
+          }
           if(input.sourceId!==undefined){const source=store.get('sources',string(input.sourceId,160,true));if(!source)fail('岗位来源不存在。',404);sources=[source];}
           if(sources.some(s=>Date.now()-(lastSync.get(s.id)||0)<30000))fail('请等待 30 秒后再次同步同一来源。',429);
           syncing=true;
-          syncProgress={status:'running',completed:0,total:sources.length,startedAt:new Date().toISOString()};
+          syncProgress={status:'running',mode:p==='/api/jobs/search'?'search':'sync',completed:0,total:sources.length,succeeded:0,partial:0,failed:0,pending:0,jobsReceived:0,startedAt:new Date().toISOString(),sources:sources.map(s=>({id:s.id,company:s.company,status:'queued'}))};
           void Promise.resolve().then(async()=>{
-            for(let i=0;i<sources.length;i+=3)await Promise.all(sources.slice(i,i+3).map(async s=>{
-              lastSync.set(s.id,Date.now());const attemptedAt=new Date().toISOString();store.put('sources',{...s,status:'同步中',attemptedAt});
-              try{const result=await jobFetcher(s);store.upsertJobs({...s,attemptedAt},Array.isArray(result)?result:result.jobs,Array.isArray(result)?{}:result);}
-              catch(error){store.put('sources',{...s,attemptedAt,status:error.code==='SOURCE_PENDING'?'待接通':'同步失败',error:s.provider==='official'?syncError(error):'网络或接口异常，已保留上次岗位。'});}
-              syncProgress={...syncProgress,completed:syncProgress.completed+1};
-            }));
+            // Refill each available slot immediately; a slow source cannot hold up a whole batch.
+            let next=0;
+            const worker=async()=>{
+              while(next<sources.length){
+                const index=next++,s=sources[index],entry=syncProgress.sources[index];
+                lastSync.set(s.id,Date.now());const attemptedAt=new Date().toISOString();
+                Object.assign(entry,{status:'running',startedAt:attemptedAt,requestsStarted:0,requestsCompleted:0});
+                store.put('sources',{...s,status:'同步中',attemptedAt});
+                try{
+                  const result=await jobFetcher(s,{query,onProgress:activity=>{
+                    if(entry.status!=='running')return;
+                    for(const key of ['requestsStarted','requestsCompleted'])if(Number.isSafeInteger(activity[key])&&activity[key]>=0)entry[key]=activity[key];
+                  }});
+                  const jobs=Array.isArray(result)?result:result.jobs,metadata=Array.isArray(result)?{}:result;
+                  store.upsertJobs({...s,attemptedAt},jobs,metadata);
+                  entry.status=metadata.complete===false?'partial':'completed';entry.jobCount=jobs.length;
+                  syncProgress.succeeded++;if(entry.status==='partial')syncProgress.partial++;
+                  syncProgress.jobsReceived+=jobs.length;
+                }catch(error){
+                  entry.status=error.code==='SOURCE_PENDING'?'pending':'failed';
+                  entry.error=s.provider==='official'?syncError(error):'网络或接口异常，已保留上次岗位。';
+                  store.put('sources',{...s,attemptedAt,status:entry.status==='pending'?'待接通':'同步失败',error:entry.error});
+                  syncProgress[entry.status]++;
+                }
+                entry.finishedAt=new Date().toISOString();syncProgress.completed++;
+              }
+            };
+            const workers=await Promise.allSettled(Array.from({length:Math.min(3,sources.length)},worker));
+            const failure=workers.find(result=>result.status==='rejected');if(failure)throw failure.reason;
             syncProgress={...syncProgress,status:'completed'};
           }).catch(error=>{syncProgress={...syncProgress,status:'failed',error:syncError(error)};}).finally(()=>{
             syncing=false;syncProgress={...syncProgress,finishedAt:new Date().toISOString()};

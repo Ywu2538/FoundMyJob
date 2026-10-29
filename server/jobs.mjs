@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import {normalizeWork,WORK_PREFERENCES} from '../dist/job-preferences.js';
 
 export function cleanText(value) {
   let s=String(value||'');
@@ -13,13 +14,24 @@ export function normalizeJob(raw,source) {
   const tags=['Python','SQL','JavaScript','TypeScript','React','Java','C++','Figma','Excel','Tableau','AWS','Kubernetes','Linux','用户研究','数据分析'].filter(t=>new RegExp(`(^|[^a-z])${t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}([^a-z]|$)`,'i').test(description));
   const track=/intern|graduate|new grad|campus|校招|应届|实习/i.test(title)?'campus':/senior|staff|lead|principal|experienced|资深|高级/i.test(title)?'experienced':'unknown';
   const region=/China|Shanghai|Beijing|Shenzhen|Guangzhou|中国|上海|北京|深圳/i.test(location)?'cn':/United States|USA|Canada|Toronto|Vancouver|Montreal|New York|San Francisco|Seattle|Chicago|Austin|Boston|Los Angeles|US[ ,;/)-]|SF|NYC/i.test(location)?'na':'other';
-  return {id:`${source.provider}:${source.slug}:${encodeURIComponent(String(raw.id))}`,title,company:source.company,location,description,requirements:[],tags,track,region,category:/design|设计/i.test(title)?'设计':/product|产品/i.test(title)?'产品':/data|数据/i.test(title)?'数据':/engineer|developer|研发/i.test(title)?'研发':'其他',work:raw.workplaceType==='remote'||/^remote$/i.test(location)?'远程办公':raw.workplaceType==='hybrid'?'混合办公':'未注明',salary:'以岗位原文为准',currency:'',url:safeUrl(raw.absolute_url||raw.hostedUrl||raw.url),source:source.id,sourceName:source.company,sourceUpdatedAt:raw.updated_at||null,syncedAt:new Date().toISOString(),age:0,logo:source.company.slice(0,2),bg:'#eeeafd',color:'#6750c7'};
+  return {id:`${source.provider}:${source.slug}:${encodeURIComponent(String(raw.id))}`,title,company:source.company,location,description,requirements:[],tags,track,region,category:/design|设计/i.test(title)?'设计':/product|产品/i.test(title)?'产品':/data|数据/i.test(title)?'数据':/engineer|developer|研发/i.test(title)?'研发':'其他',work:WORK_PREFERENCES[normalizeWork(raw.workplaceType)]?.[0]||(/^remote$/i.test(location)?'远程办公':'未注明'),salary:'以岗位原文为准',currency:'',url:safeUrl(raw.absolute_url||raw.hostedUrl||raw.url),source:source.id,sourceName:source.company,sourceUpdatedAt:raw.updated_at||null,syncedAt:new Date().toISOString(),age:0,logo:source.company.slice(0,2),bg:'#eeeafd',color:'#6750c7'};
 }
 export async function readJson(response,limit=25000000) {
   if(!response.ok)throw new Error(`服务返回 HTTP ${response.status}`);
   const chunks=[];let size=0;for await(const chunk of response.body){size+=chunk.length;if(size>limit)throw new Error('响应内容超过限制。');chunks.push(chunk);}return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
-export async function fetchJobs(source,{fetcher}={}) {
+export async function fetchJobs(source,{fetcher,query,onProgress}={}) {
+  if(onProgress){
+    const request=fetcher||(source.provider==='official'?(await import('./official-fetch.mjs')).officialFetch:fetch);
+    let requestsStarted=0,requestsCompleted=0;
+    fetcher=async(...args)=>{
+      onProgress({requestsStarted:++requestsStarted,requestsCompleted});
+      const response=await request(...args);
+      onProgress({requestsStarted,requestsCompleted:++requestsCompleted});
+      return response;
+    };
+  }
+  if(source.provider==='workday')return (await import('./overseas-sources.mjs')).fetchOverseasJobs(source,{fetcher,query});
   if(source.provider==='official')return (await import('./official-jobs.mjs')).fetchOfficialJobs(source,{fetcher});
   fetcher??=fetch;
   if(!/^[a-zA-Z0-9_-]{1,80}$/.test(source.slug)||!['greenhouse','lever'].includes(source.provider))throw new Error('岗位源格式无效。');
@@ -31,6 +43,6 @@ export async function fetchJobs(source,{fetcher}={}) {
 }
 export function manualJob(input) {
   for(const k of ['title','company','description','location'])if(typeof input[k]!=='string'||!input[k].trim()||input[k].length>(k==='description'?24000:200))throw new Error(`请填写有效的 ${k}。`);
-  if(!['cn','ca','us','na','other'].includes(input.region)||!['campus','experienced','unknown'].includes(input.track))throw new Error('请选择地区和招聘类型。');
-  return {...normalizeJob({...input,id:randomUUID()},{provider:'manual',slug:'user',company:input.company,id:'manual'}),region:['ca','us'].includes(input.region)?'na':input.region,market:['cn','ca','us'].includes(input.region)?input.region:undefined,track:input.track,sourceKind:input.discoveredFromWeb===true?'discovered':'manual',verificationStatus:'pending',descriptionKind:input.discoveredFromWeb===true?'summary':'full',sourceName:input.discoveredFromWeb===true?'官网检索（招聘状态待核验）':'手动导入（请核对原文）'};
+  if(!['cn','ca','us','jp','gb','fr','au','sg','na','other'].includes(input.region)||!['campus','experienced','unknown'].includes(input.track))throw new Error('请选择地区和招聘类型。');
+  return {...normalizeJob({...input,id:randomUUID()},{provider:'manual',slug:'user',company:input.company,id:'manual'}),region:['ca','us'].includes(input.region)?'na':input.region,market:['cn','ca','us','jp','gb','fr','au','sg'].includes(input.region)?input.region:undefined,track:input.track,sourceKind:input.discoveredFromWeb===true?'discovered':'manual',verificationStatus:'pending',descriptionKind:input.discoveredFromWeb===true?'summary':'full',sourceName:input.discoveredFromWeb===true?'官网检索（招聘状态待核验）':'手动导入（请核对原文）'};
 }
