@@ -24,6 +24,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY, data TEXT NOT NULL);`);
     this.db.prepare('INSERT OR IGNORE INTO config(key,data) VALUES(?,?)').run('settings',JSON.stringify({language:'zh',provider:'cursor',model:'auto'}));
     if (this.db.prepare('PRAGMA user_version').get().user_version < 2) this.migrateProfiles();
+    if(!this.get('config','user'))this.db.prepare('INSERT INTO config(key,data) VALUES(?,?)').run('user',JSON.stringify({username:this.rows('profiles').find(p=>!p.archived)?.name||'',avatar:''}));
     for (const s of [{id:'greenhouse:figma',provider:'greenhouse',slug:'figma',company:'Figma'},{id:'greenhouse:imc',provider:'greenhouse',slug:'imc',company:'IMC'},{id:'greenhouse:towerresearchcapital',provider:'greenhouse',slug:'towerresearchcapital',company:'Tower Research Capital'}]) this.db.prepare('INSERT OR IGNORE INTO sources VALUES(?,?)').run(s.id,JSON.stringify({...s,status:'未同步',count:0}));
     for(const source of [...COMPANY_SOURCES,...OVERSEAS_SOURCES]){
       const previous=this.get('sources',source.id);
@@ -82,7 +83,7 @@ export class Store {
   put(table,data) {this.db.prepare(`INSERT INTO ${table}(id,data) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data`).run(data.id,JSON.stringify(data));return data;}
   config(key,data,revision) {const r=this.db.prepare('UPDATE config SET data=?,revision=revision+1 WHERE key=? AND revision=?').run(JSON.stringify(data),key,revision);if(!r.changes)throw Object.assign(new Error('数据已在其他窗口更新，请刷新后重试。'),{status:409});}
   transaction(fn) {this.db.exec('BEGIN IMMEDIATE');try{const r=fn();this.db.exec('COMMIT');return r;}catch(e){this.db.exec('ROLLBACK');throw e;}}
-  snapshot() {return {version:3,profiles:this.rows('profiles').map(p=>({...p,jobPreferences:resolvedJobPreferences(p),searchScope:profileSearchScope(p)})),settings:this.get('config','settings'),jobs:this.db.prepare('SELECT data,active FROM jobs').all().map(r=>({...JSON.parse(r.data),active:!!r.active})),saved:this.db.prepare('SELECT job_id FROM saved').all().map(r=>r.job_id),resumes:this.rows('resumes').reverse(),applications:this.rows('applications').reverse(),sources:this.rows('sources'),tasks:this.rows('tasks').reverse().slice(0,50)};}
+  snapshot() {return {version:3,user:this.get('config','user'),profiles:this.rows('profiles').map(p=>({...p,jobPreferences:resolvedJobPreferences(p),searchScope:profileSearchScope(p)})),settings:this.get('config','settings'),jobs:this.db.prepare('SELECT data,active FROM jobs').all().map(r=>({...JSON.parse(r.data),active:!!r.active})),saved:this.db.prepare('SELECT job_id FROM saved').all().map(r=>r.job_id),resumes:this.rows('resumes').reverse(),applications:this.rows('applications').reverse(),sources:this.rows('sources'),tasks:this.rows('tasks').reverse().slice(0,50)};}
   upsertJobs(source,jobs,{complete=true,total,note='',closedIds=[],query}={}) {
     if(!Array.isArray(jobs)||jobs.some(j=>!j.id||j.source!==source.id||!j.title||!j.url)||new Set(jobs.map(j=>j.id)).size!==jobs.length)throw new Error('岗位数据无效，已保留上次结果。');
     this.transaction(()=>{

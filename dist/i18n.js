@@ -8,6 +8,9 @@ export function setLocale(value){
  return locale;
 }
 export const translations=Object.fromEntries(`
+用户中心|User center
+头像格式无效，请重新选择 JPG、PNG 或 WebP 图片。|The avatar format is invalid. Choose a JPG, PNG or WebP image again.
+用户中心仅支持修改基础信息、专业技能和求职偏好。|The user center only supports basic information, skills and job preferences.
 请选择 Word（.docx / .doc）、PDF、TXT 或 Markdown 文件。|Choose a Word (.docx / .doc), PDF, TXT or Markdown file.
 文件不能超过 10 MB。|Files must be no larger than 10 MB.
 文件为空，请选择有内容的文件。|This file is empty. Choose a file with content.

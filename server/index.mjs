@@ -15,6 +15,7 @@ import {DEFAULT_RESUME_LAYOUT,isResumeLayout} from '../dist/resume-layouts.js';
 import {JOB_COUNTRIES,WORK_PREFERENCES,resolvedJobPreferences,cityEntry,canonicalCity} from '../dist/job-preferences.js';
 import {overseasSearchQuery} from './overseas-sources.mjs';
 import {extractDocument,importFormat,readImportBody} from './document-import.mjs';
+import {validateAvatar} from './user.mjs';
 
 const root=fileURLToPath(new URL('../dist/',import.meta.url));
 const overseasSourceIds=new Set(OVERSEAS_COMPANIES.map(company=>company.id).filter(Boolean));
@@ -25,6 +26,7 @@ files['/i18n.js']='i18n.js';
 files['/job-preferences.js']='job-preferences.js';
 files['/profile-track.js']='profile-track.js';
 files['/profile-import.js']='profile-import.js';
+files['/user-avatar.js']='user-avatar.js';
 files['/resume-markdown.js']='resume-markdown.js';
 files['/resume-layouts.js']='resume-layouts.js';
 files['/resume-review-tips.js']='resume-review-tips.js';
@@ -100,7 +102,21 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
         }
         if(!req.headers['content-type']?.startsWith('application/json'))fail('仅支持 JSON。',415);
         let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>256000)fail('请求过大。',413);}let input;try{input=JSON.parse(body);}catch{fail('请求 JSON 无效。');}if(!input||typeof input!=='object'||Array.isArray(input))fail('请求格式无效。');
-        if(p==='/api/profiles/create') {
+        if(p==='/api/user'){
+          const user={username:string(input.username,80,true),avatar:validateAvatar(input.avatar)};
+          store.config('user',user,input.revision);
+        }else if(p==='/api/profiles/basics'){
+          const current=store.profile(string(input.id,80,true));
+          const limits={label:100,name:80,email:120,phone:60,location:120,target:160,preferences:12000};
+          const allowed=new Set([...Object.keys(limits),'id','revision','market','searchScope','resumeLanguage','track','skills','jobPreferences']);
+          if(Object.keys(input).some(key=>!allowed.has(key)))fail('用户中心仅支持修改基础信息、专业技能和求职偏好。');
+          const fields={};for(const [key,max] of Object.entries(limits))fields[key]=string(input[key],max,['label','name'].includes(key));
+          fields.resumeLanguage=enumeration(input.resumeLanguage,['zh','en']);fields.track=enumeration(input.track,['campus','experienced']);
+          if(!Array.isArray(input.skills)||input.skills.length>50)fail('最多填写 50 项技能。');
+          fields.skills=[...new Set(input.skills.map(skill=>string(skill,100,true)))];
+          Object.assign(fields,searchPreferences(input,current));
+          store.editProfile(current.id,fields,input.revision);
+        }else if(p==='/api/profiles/create') {
           const source=input.copyFrom?store.profile(string(input.copyFrom,80,true)):blankProfile();
           const profile=store.createProfile({...source,label:string(input.label,100,true),...searchPreferences(input,source),resumeLanguage:enumeration(input.resumeLanguage??source.resumeLanguage,['zh','en'])});
           return json(res,201,{...snapshot(),createdProfileId:profile.id});

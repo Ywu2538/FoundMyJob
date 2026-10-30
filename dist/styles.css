@@ -231,3 +231,30 @@
  .import-footer{padding:12px 18px}
  .import-footer .button-row>.field-help{flex-basis:100%;font-size:11px}
 }
+
+/* User identity is independent of the selected career profile. */
+.avatar{overflow:hidden;padding:0}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.sidebar-user.is-current{background:#f0ebfc;box-shadow:inset 0 0 0 1px #e6def8}
+.account-page{max-width:1200px;margin:auto}
+.account-identity{padding:28px;margin-bottom:24px}
+.account-identity form{display:grid;grid-template-columns:210px minmax(0,1fr);gap:36px;align-items:center}
+.account-avatar-area{display:flex;flex-direction:column;align-items:center;gap:14px}
+.account-avatar{width:96px;height:96px;font-size:32px;background:#eee8fc;color:#7961ce;flex-shrink:0}
+.account-avatar-area .button-row{justify-content:center;flex-wrap:wrap;gap:10px}
+.account-avatar-area .field-help{text-align:center;margin:0;line-height:1.6}
+.account-user-fields h2{font-size:17px;margin:0 0 18px;color:#493957}
+.account-user-fields>label{display:flex;flex-direction:column;gap:9px;font-size:13px;color:#695577;max-width:460px}
+.account-user-fields>label input{width:100%}
+.account-user-fields>.field-help{line-height:1.8;margin:12px 0 20px}
+.account-user-fields>.button-row{flex-wrap:wrap}
+.account-profile-form>.form-grid{margin-top:22px}
+.account-profile-form>.form-footer{margin-top:26px}
+.account-profile-context{margin-bottom:24px}
+@media(max-width:760px){
+ .account-identity{padding:22px}
+ .account-identity form{grid-template-columns:1fr;gap:24px}
+ .account-user-fields>label{max-width:none}
+ .account-profile-context{flex-wrap:wrap;gap:16px}
+ .account-page .page-title>.button{align-self:flex-start}
+}

@@ -30,6 +30,8 @@ Windows 可双击 `Start-FoundMyJob.cmd`。它会独立在后台启动服务并�
 
 多画像属于当前本机求职空间；本版本仍没有在线注册或多账户认证。其他用户各自在自己的电脑运行，在线账户隔离需要在后续多人版本中实现。
 
+点击侧边栏底部的用户卡片或右上角头像进入「用户中心」。用户名和头像独立于求职画像，切换画像后保持不变，点击「保存用户信息」写入本机数据库。头像支持最大 5 MB 的 JPG、PNG、WebP，自动居中裁成正方形并压缩为 256 × 256 的 JPEG；可移除头像或恢复已保存信息。「简历管理」直接打开全部画像的「我的简历」。下方显示当前画像，可切换并只编辑基础信息、专业技能和求职偏好；保存时保留原有教育、工作和项目经历。完整画像页中未保存的经历草稿也会保留，需回到完整画像页单独保存。
+
 没有示例经历自动混入新数据库；旧 Demo 的浏览器记录可在设置中单独导出。
 
 ## 经历文件导入
@@ -117,7 +119,9 @@ GitHub 默认关闭 Cursor 权限。`.env.local`、CLI、登录信息均不上�
 
 2026-10-15 的阶段成果先提交到 `main`，作为后续开发基线。下一阶段从 `main` 创建 `dev`，日常开发和阶段性提交在 `dev` 上进行；完成自动测试、关键页面与真实接口验证后，再合并回 `main`。本地数据库、画像、简历、登录信息及 `.env.local` 保留在本机，不随源码提交。
 
-- `GET /api/state`：读取本机数据和本地会话令牌，包含 `profiles` 列表，不含 Key。
+- `GET /api/state`：读取本机数据和本地会话令牌，包含独立的 `user` 信息和 `profiles` 列表，不含 Key。
+- `POST /api/user`：保存 `username`、`avatar` 和 `revision`；头像为空字符串表示移除，多窗口版本冲突返回 409。
+- `POST /api/profiles/basics`：用户中心保存当前画像的基础信息、技能和偏好，带 `id`、`revision`；拒绝教育、工作、项目经历等额外字段，原有经历保持不变。
 - `POST /api/profiles/create`：用 `label`、`market`、`resumeLanguage` 新建画像，可传 `copyFrom` 复制已有画像，返回 `createdProfileId`。
 - `POST /api/profiles/save`（或 `/api/profile`）：保存完整画像字段，必须带 `id`、`revision` 防止覆盖其他画像或较新的修改。
 - `POST /api/profiles/archive`：带 `id`、`revision`、`archived` 归档或恢复画像。
