@@ -5,7 +5,7 @@ export const MAX_IMPORT_TEXT=100000;
 export const importError=(message,status=400)=>Object.assign(new Error(message),{status});
 export function importFormat(filename){
   const extension=typeof filename==='string'&&filename.match(/\.([a-z0-9]+)$/i)?.[1].toLowerCase();
-  if(!['txt','md','doc','docx','pdf'].includes(extension))throw importError('请选择 Word（.docx / .doc）、PDF、TXT 或 Markdown 文件。',415);
+  if(!['txt','md','doc','docx','pdf','png','jpg','jpeg','webp','bmp'].includes(extension))throw importError('请选择 Word、PDF、TXT、Markdown 或 PNG / JPG / WebP / BMP 图片。',415);
   return extension;
 }
 
@@ -19,9 +19,9 @@ export async function extractDocument(filename,buffer){
   try {
     return await new Promise((resolve,reject)=>{
       const worker=new Worker(new URL('./document-import-worker.mjs',import.meta.url),{
-        workerData:{format,buffer},resourceLimits:{maxOldGenerationSizeMb:128},execArgv:[],
+        workerData:{format,buffer},resourceLimits:{maxOldGenerationSizeMb:384},execArgv:[],
       });
-      const timer=setTimeout(()=>finish(importError('文件解析超时，请拆分文件或另存为较小的文件后重试。')),30000);
+      const timer=setTimeout(()=>finish(importError('文件解析或 OCR 超时，请拆分文件或另存为较小的文件后重试。')),180000);
       let done=false;
       function finish(error,result){
         if(done)return;done=true;clearTimeout(timer);

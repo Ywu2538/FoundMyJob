@@ -11,11 +11,12 @@ import { Providers } from './providers.mjs';
 import {COMPANY_LOGOS} from '../dist/company-logos.js';
 import {OVERSEAS_COMPANIES} from '../dist/company-catalog.js';
 import { profileSearchScope } from '../dist/core.js';
-import {DEFAULT_RESUME_LAYOUT,isResumeLayout} from '../dist/resume-layouts.js';
+import {DEFAULT_RESUME_LAYOUT,isResumeLayout,RESUME_LAYOUTS,canUseResumeLayout} from '../dist/resume-layouts.js';
 import {JOB_COUNTRIES,WORK_PREFERENCES,resolvedJobPreferences,cityEntry,canonicalCity} from '../dist/job-preferences.js';
 import {overseasSearchQuery} from './overseas-sources.mjs';
 import {extractDocument,importFormat,readImportBody} from './document-import.mjs';
 import {validateAvatar} from './user.mjs';
+import {CursorConnection} from './cursor-connection.mjs';
 
 const root=fileURLToPath(new URL('../dist/',import.meta.url));
 const overseasSourceIds=new Set(OVERSEAS_COMPANIES.map(company=>company.id).filter(Boolean));
@@ -27,6 +28,8 @@ files['/job-preferences.js']='job-preferences.js';
 files['/profile-track.js']='profile-track.js';
 files['/profile-import.js']='profile-import.js';
 files['/user-avatar.js']='user-avatar.js';
+files['/cursor-settings.js']='cursor-settings.js';
+files['/self-hosted-settings.js']='self-hosted-settings.js';
 files['/resume-markdown.js']='resume-markdown.js';
 files['/resume-layouts.js']='resume-layouts.js';
 files['/resume-review-tips.js']='resume-review-tips.js';
@@ -70,8 +73,11 @@ function searchPreferences(input,source={}){
   if(prefs.country){location.searchScope=prefs.country==='cn'?'domestic':'overseas';location.market=prefs.country;}
   return {...location,jobPreferences:prefs};
 }
-export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_ALLOW_CURSOR==='1',generator=generateWithCursor,providers=new Providers(),jobFetcher=fetchJobs}={}) {
+export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_ALLOW_CURSOR==='1',generator=generateWithCursor,providers=new Providers(),jobFetcher=fetchJobs,cursorConnection=new CursorConnection()}={}) {
   if(process.env.FMJ_DEPLOYMENT&&process.env.FMJ_DEPLOYMENT!=='local')throw new Error('当前版本仅支持单用户本机运行；云部署需要独立账户、额度和密钥隔离服务。');
+  const savedCursor=store.get('config','cursorIntegration');
+  if(savedCursor)cursorEnabled=savedCursor.enabled===true;
+  const setCursorEnabled=enabled=>{const current=store.get('config','cursorIntegration');if(current)store.config('cursorIntegration',{enabled},current.revision);else store.db.prepare('INSERT INTO config(key,data) VALUES(?,?)').run('cursorIntegration',JSON.stringify({enabled}));cursorEnabled=enabled;};
   const token=randomBytes(32).toString('hex');let busy=false,syncing=false;const lastSync=new Map();
   let syncProgress={status:'idle',completed:0,total:0};
   const snapshot=()=>({...store.snapshot(),token,syncing,providers:providers.list(),capabilities:{cursor:cursorEnabled,platformCredits:false}});
@@ -84,11 +90,16 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
       if(req.headers['sec-fetch-site']==='cross-site')return json(res,403,{error:'不接受跨站请求。'});
       const url=new URL(req.url,'http://localhost'),p=url.pathname;
       if(p==='/api/health'&&req.method==='GET')return json(res,200,{app:'foundmyjob',mode:'local',database:'sqlite'});
+      if(p==='/api/resume-templates'&&req.method==='GET')return json(res,200,{templates:RESUME_LAYOUTS.map(layout=>({...layout,available:canUseResumeLayout(layout.id,store.get('config','templateEntitlements')?.keys||[])})),billingEnabled:false});
       if(p==='/api/state'&&req.method==='GET')return json(res,200,snapshot());
       if(p==='/api/jobs/sync/status'&&req.method==='GET')return json(res,200,syncProgress);
+      if(p==='/api/self-hosted/status'&&req.method==='GET'){
+        if(req.headers['x-fmj-token']!==token)fail('本地会话验证失败，请刷新页面。',403);
+        return json(res,200,providers.selfHosted.describe());
+      }
       if(p==='/api/cursor/status'&&req.method==='GET') {
-        if(!cursorEnabled)return json(res,200,{enabled:false,message:'本机 Cursor 开关未开启。请在本机 .env.local 配置 FMJ_ALLOW_CURSOR=1 后重启。'});
-        try{const cli=cursorExecutable();const {stdout}=await runProcess(cli.command,[...cli.args,'status','--format','json'],{timeout:10000});const s=JSON.parse(stdout);return json(res,200,{enabled:!!s.isAuthenticated,message:s.isAuthenticated?'Cursor CLI 已登录，可使用本机账号生成简历。':'Cursor CLI 尚未登录。请双击 Login-Cursor.cmd 完成官方登录。'});}catch(error){return json(res,200,{enabled:false,message:error.code==='CURSOR_CLI_PERMISSION'?error.message:'未找到可用 CLI。请安装 Cursor CLI 并双击 Login-Cursor.cmd 登录。'});}
+        if(req.headers['x-fmj-token']!==token)fail('本地会话验证失败，请刷新页面。',403);
+        return json(res,200,{...await cursorConnection.status(),enabled:cursorEnabled});
       }
       if(p.startsWith('/api/tasks/')&&req.method==='GET') {const task=store.get('tasks',p.slice(11));if(!task)fail('任务不存在。',404);return json(res,200,task);}
       if(p==='/api/models'&&req.method==='GET') {if(req.headers['x-fmj-token']!==token)fail('本地会话验证失败，请刷新页面。',403);return json(res,200,{models:await providers.models(url.searchParams.get('provider'))});}
@@ -101,8 +112,28 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
           return json(res,200,result);
         }
         if(!req.headers['content-type']?.startsWith('application/json'))fail('仅支持 JSON。',415);
-        let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>256000)fail('请求过大。',413);}let input;try{input=JSON.parse(body);}catch{fail('请求 JSON 无效。');}if(!input||typeof input!=='object'||Array.isArray(input))fail('请求格式无效。');
-        if(p==='/api/user'){
+        let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>(p==='/api/resumes/save'?512000:256000))fail('请求过大。',413);}let input;try{input=JSON.parse(body);}catch{fail('请求 JSON 无效。');}if(!input||typeof input!=='object'||Array.isArray(input))fail('请求格式无效。');
+        if(p==='/api/self-hosted/test'){
+          if(Object.keys(input).length)fail('连接检测不接受模型地址、密钥或个人资料。');
+          return json(res,200,await providers.selfHosted.testConnection());
+        }else if(p==='/api/cursor/connect'){
+          if(input.consent!==true)fail('请确认连接你自己的本机 Cursor。');
+          const status=await cursorConnection.status();if(!status.installed)fail(status.message);
+          setCursorEnabled(true);return json(res,200,{...snapshot(),cursorStatus:{...status,enabled:true}});
+        }else if(p==='/api/cursor/install'){
+          if(input.consent!==true)fail('请确认从 Cursor 官网安装本机连接工具。');
+          await cursorConnection.install();setCursorEnabled(true);
+          return json(res,200,{...snapshot(),cursorStatus:{...await cursorConnection.status(),enabled:true}});
+        }else if(p==='/api/cursor/login'){
+          if(input.consent!==true)fail('请确认使用 Cursor 官方网页登录。');
+          if(!(await cursorConnection.status()).installed)fail('请先安装 Cursor 连接工具。');
+          setCursorEnabled(true);return json(res,200,{...cursorConnection.startLogin(),enabled:true});
+        }else if(p==='/api/cursor/disable'){
+          if(busy)fail('请等待当前生成完成后再断开。',409);setCursorEnabled(false);cursorConnection.close();
+        }else if(p==='/api/cursor/key'){
+          if(input.remove===true)cursorConnection.clearKey();else {cursorConnection.setKey(input.key);setCursorEnabled(true);}
+        }else if(p==='/api/user'){
+
           const user={username:string(input.username,80,true),avatar:validateAvatar(input.avatar)};
           store.config('user',user,input.revision);
         }else if(p==='/api/profiles/basics'){
@@ -129,7 +160,9 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
           enumeration(profile.track,['campus','experienced']);if(!Array.isArray(input.skills)||input.skills.length>50)fail('最多填写 50 项技能。');profile.skills=[...new Set(input.skills.map(s=>string(s,100,true)))];store.profile(input.id);store.editProfile(input.id,profile,input.revision);
         }else if(p==='/api/settings') {
           const provider=enumeration(input.provider,['cursor',...providers.list().map(p=>p.id)]),language=enumeration(input.language,['zh','en']);
-          const model=string(input.model,200,true);store.config('settings',{provider,language,model,freeOnly:input.freeOnly===true},input.revision);
+          const model=string(input.model,200,true);
+          if(provider==='self-hosted'){providers.selfHosted.assertModel(model);if(input.freeOnly===true)fail('自部署模型不使用第三方免费模型筛选。');}
+          store.config('settings',{provider,language,model,freeOnly:input.freeOnly===true},input.revision);
         }else if(p==='/api/credentials') {if(input.remove)providers.clearKey(input.provider);else providers.setKey(input.provider,input.key);
         }else if(p==='/api/jobs/match') {
           const profile=store.profile(string(input.profileId,80,true),{allowArchived:true});
@@ -198,7 +231,12 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
           const a=store.get('applications',input.id);if(!a)fail('投递记录不存在。');const status=enumeration(input.status,['准备中','已投递','面试中','已结束']);
           if(['已投递','面试中'].includes(status)&&!store.rows('resumes').some(r=>r.jobId===a.jobId&&r.profileId===a.profileId&&r.status==='reviewed'))fail('请先完成该岗位、该画像的简历审核。');
           const r=store.db.prepare('UPDATE applications SET data=?,revision=revision+1 WHERE id=? AND revision=?').run(JSON.stringify({...a,status,updatedAt:new Date().toISOString()}),input.id,input.revision);if(!r.changes)fail('投递记录已更新，请刷新重试。',409);
-        }else if(p==='/api/resumes/save') {if(input.layout!==undefined&&!isResumeLayout(input.layout))fail('简历布局无效。');store.editResume(input.id,{content:string(input.content,40000,true),review:input.review===true,revision:input.revision,layout:input.layout});
+        }else if(p==='/api/resumes/save') {
+          if(input.layout!==undefined&&!isResumeLayout(input.layout))fail('简历布局无效。');
+          const layout=input.layout??store.get('resumes',input.id)?.layout??DEFAULT_RESUME_LAYOUT;
+          if(!canUseResumeLayout(layout,store.get('config','templateEntitlements')?.keys||[]))fail('此简历模板尚未解锁。',403);
+          let photo;if(input.photo!==undefined){try{photo=validateAvatar(input.photo);}catch{fail('证件照格式无效，请重新上传 JPG、PNG 或 WebP 图片。');}}
+          store.editResume(input.id,{content:string(input.content,40000,true),review:input.review===true,revision:input.revision,layout,photo});
         }else if(p==='/api/resumes/delete') {store.db.prepare('DELETE FROM resumes WHERE id=?').run(input.id);
         }else if(p==='/api/generate') {
           const provider=enumeration(input.provider,['cursor','platform',...providers.list().map(p=>p.id)]);
@@ -210,9 +248,9 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
           if(busy)fail('已有生成任务运行中，请等待完成。',409);
           const job=store.get('jobs',input.jobId),profile=store.profile(profileId),language=enumeration(input.language??profile.resumeLanguage,['zh','en']),model=string(input.model,200,true);if(!job)fail('岗位不存在。');
           if(input.profileRevision!==profile.revision)fail('画像已更新，请重新打开岗位详情，确认画像后再生成。',409);buildPrompt(profile,job,language);
-          if(provider!=='cursor'&&!providers.keys.has(provider))fail('请在 AI 设置中输入你自己的 API Key。');
+          if(provider!=='cursor')providers.assertReady(provider,model);
           busy=true;const task={id,status:'running',jobId:job.id,profileId,profileLabel:profile.label,profileRevision:profile.revision,language,sourceProfile:profile,provider,model,createdAt:new Date().toISOString()};store.put('tasks',task);
-          Promise.resolve().then(()=>provider==='cursor'?generator({profile,job,language},{model}):providers.generate({profile,job,language,provider,model,freeOnly:input.freeOnly===true})).then(result=>{
+          Promise.resolve().then(()=>provider==='cursor'?generator({profile,job,language},{model,env:cursorConnection.environment()}):providers.generate({profile,job,language,provider,model,freeOnly:input.freeOnly===true})).then(result=>{
             const resume={...result,id:randomUUID(),jobId:job.id,profileId,profileLabel:profile.label,profileRevision:profile.revision,title:`${job.company} · ${job.title}`,language,layout:DEFAULT_RESUME_LAYOUT,status:'draft',reviewedAt:null,createdAt:new Date().toISOString(),sourceProfile:profile,sourceJob:job};
             store.transaction(()=>{store.db.prepare('INSERT INTO resumes(id,job_id,data) VALUES(?,?,?)').run(resume.id,job.id,JSON.stringify(resume));store.db.prepare('INSERT INTO resume_versions(resume_id,data) VALUES(?,?)').run(resume.id,JSON.stringify(resume));store.put('tasks',{...task,status:'completed',resumeId:resume.id,finishedAt:new Date().toISOString()});});
           }).catch(error=>store.put('tasks',{...task,status:'failed',error:error.message,finishedAt:new Date().toISOString()})).finally(()=>{busy=false;});
@@ -228,7 +266,7 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
   });
   // Recover only after binding succeeds; a second launch on an occupied port must not interrupt tasks.
   server.on('listening',()=>store.recoverTasks());
-  server.on('close',()=>{if(!busy&&!syncing)store.close();else {const t=setInterval(()=>{if(!busy&&!syncing){clearInterval(t);store.close();}},100);t.unref();}});
+  server.on('close',()=>{cursorConnection.close();if(!busy&&!syncing)store.close();else {const t=setInterval(()=>{if(!busy&&!syncing){clearInterval(t);store.close();}},100);t.unref();}});
   return server;
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {

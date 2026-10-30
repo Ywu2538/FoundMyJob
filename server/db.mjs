@@ -102,14 +102,14 @@ export class Store {
     return job.id;
   }
   createResume(resume) {this.transaction(()=>{this.db.prepare('INSERT INTO resumes(id,job_id,data) VALUES(?,?,?)').run(resume.id,resume.jobId,JSON.stringify(resume));this.db.prepare('INSERT INTO resume_versions(resume_id,data) VALUES(?,?)').run(resume.id,JSON.stringify(resume));});}
-  editResume(id,{content,review,revision,layout}) {
+  editResume(id,{content,review,revision,layout,photo}) {
     const r=this.get('resumes',id);if(!r)throw new Error('简历不存在。');
-    const contentChanged=content!==r.content,nextLayout=normalizeResumeLayout(layout??r.layout);
-    const next={...r,content,layout:nextLayout,status:review?'reviewed':contentChanged?'draft':r.status,reviewedAt:review?new Date().toISOString():contentChanged?null:r.reviewedAt,...(contentChanged?{notes:[],reviewTipsVersion:0}:{})};
+    const contentChanged=content!==r.content,nextLayout=normalizeResumeLayout(layout??r.layout),nextPhoto=photo??r.photo??'',photoChanged=nextPhoto!==(r.photo||'');
+    const next={...r,content,layout:nextLayout,photo:nextPhoto,status:review?'reviewed':contentChanged||photoChanged?'draft':r.status,reviewedAt:review?new Date().toISOString():contentChanged||photoChanged?null:r.reviewedAt,...(contentChanged?{notes:[],reviewTipsVersion:0}:{})};
     this.transaction(()=>{
       const change=this.db.prepare('UPDATE resumes SET data=?,revision=revision+1 WHERE id=? AND revision=?').run(JSON.stringify(next),id,revision);
       if(!change.changes)throw Object.assign(new Error('简历已被更新，请重新打开再编辑。'),{status:409});
-      if(contentChanged||nextLayout!==normalizeResumeLayout(r.layout))this.db.prepare('INSERT INTO resume_versions(resume_id,data) VALUES(?,?)').run(id,JSON.stringify(next));
+      if(contentChanged||photoChanged||nextLayout!==normalizeResumeLayout(r.layout))this.db.prepare('INSERT INTO resume_versions(resume_id,data) VALUES(?,?)').run(id,JSON.stringify(next));
     });
   }
   track(jobId,profileId) {if(!this.db.prepare('SELECT id FROM jobs WHERE id=?').get(jobId))throw new Error('岗位不存在。');const profile=this.profile(profileId),a={id:randomUUID(),jobId,profileId,profileLabel:profile.label,status:'准备中',createdAt:new Date().toISOString()};this.db.prepare('INSERT OR IGNORE INTO applications(id,job_id,profile_id,data) VALUES(?,?,?,?)').run(a.id,jobId,profileId,JSON.stringify(a));}

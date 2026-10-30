@@ -19,7 +19,7 @@ Windows 可双击 `Start-FoundMyJob.cmd`。它会独立在后台启动服务并�
 
 ## 使用流程
 
-1. 在「求职画像」新建或复制画像，例如「加拿大 · Data Engineer」「加拿大 · Software Engineer」「中国 · 软件工程师」。各自选择招聘地点范围（国内／国外／国内外均考虑），填写职位、简历语言和真实教育、技能、工作或项目经历。支持导入 Word（.docx / .doc）、文字型 PDF、TXT / Markdown 文件；复制后两份画像独立编辑。
+1. 在「求职画像」新建或复制画像，例如「加拿大 · Data Engineer」「加拿大 · Software Engineer」「中国 · 软件工程师」。各自选择招聘地点范围（国内／国外／国内外均考虑），填写职位、简历语言和真实教育、技能、工作或项目经历。支持导入 Word（.docx / .doc）、PDF、图片、TXT / Markdown 文件；复制后两份画像独立编辑。
 2. 在「发现岗位」选择搜索使用的画像，默认展示岗位库中的全部可浏览记录，按技能、目标职位和求职阶段计算匹配度；排序只改变先后，用户可主动选择地区、职位、来源筛选或显示数量。画像的地点偏好决定「继续查找岗位」提供国内、国外或两组官网入口。点击「同步真实岗位」从企业公开招聘板获取岗位；支持添加 Greenhouse / Lever 招聘板，也可以导入真实 JD 和原文链接。同步得到的岗位库共享，画像决定筛选和排序。
 3. 在「AI 与数据设置」选择本机 Cursor，或自带 Key 的厂商与模型。
 4. 在岗位详情确认生成使用的画像、语言及数据发送与额度使用，再生成简历。任务保存该画像的版本和事实快照；生成中编辑或切换画像不会改变这次任务。生成前画像已被其他窗口修改时，需刷新后重新确认。任务状态保存在「生成记录」，刷新不丢任务。
@@ -36,9 +36,9 @@ Windows 可双击 `Start-FoundMyJob.cmd`。它会独立在后台启动服务并�
 
 ## 经历文件导入
 
-在「求职画像」点击「导入经历文件」，选择 Word（.docx / .doc）、PDF、TXT 或 Markdown，最大 10 MB。文件仅在本机内存解析，不保存原始附件，也不发送给 AI 服务。提取后左侧保留完整原文，右侧同时显示专业技能、教育、工作／实习、项目经历四个编辑框，并保留当前画像中已有的文字。可从原文选择段落，用 Ctrl+C / Ctrl+V 分别复制粘贴，也可点击对应栏目旁的「填入选中文字」在光标处插入或替换选中内容。可以反复整理多个栏目，原文不会被移走。点击「填入画像草稿」一次应用本次修改；取消不会改动画像。最后点击「保存当前画像」写入数据库。经历栏目各最多 12,000 字符；专业技能支持逗号、分号或换行分隔，确认时整理为技能列表，最多 50 项、每项 100 字符、总计 1,000 字符。超长会提示精简，不会静默截断。
+在「求职画像」点击「导入经历文件」，选择 Word（.docx / .doc）、PDF、PNG / JPG / WebP / BMP 图片、TXT 或 Markdown，最大 10 MB。文件仅在本机内存解析，不保存原始附件，也不发送给 AI 服务。提取后左侧保留完整原文，右侧同时显示专业技能、教育、工作／实习、项目经历四个编辑框，并保留当前画像中已有的文字。可从原文选择段落，用 Ctrl+C / Ctrl+V 分别复制粘贴，也可点击对应栏目旁的「填入选中文字」在光标处插入或替换选中内容。可以反复整理多个栏目，原文不会被移走。点击「填入画像草稿」一次应用本次修改；取消不会改动画像。最后点击「保存当前画像」写入数据库。经历栏目各最多 12,000 字符；专业技能支持逗号、分号或换行分隔，确认时整理为技能列表，最多 50 项、每项 100 字符、总计 1,000 字符。超长会提示精简，不会静默截断。
 
-PDF 最多 100 页；扫描件、图片或无文字页会提示先做 OCR，加密 PDF 需先解锁。TXT 支持 UTF-8、带 BOM 的 UTF-16 和 GB18030 中文编码。空文件、损坏文件和扩展名不匹配会提示错误，保留已有经历。
+PDF 最多 100 页；无文字或文字很少的页自动用本地 Tesseract OCR（简体中文 + English）识别，每次最多 OCR 20 页，加密 PDF 需先解锁。Word 使用结构化 XML 读取正文、表格、页眉页脚和文本框，并处理前 20 张嵌入图片中的可识别文字。导入界面只展示提取文字和经历编辑栏，不展示嵌入图片或图标。扫描图片直接识别。OCR 和语言包随 npm 依赖安装，识别时不访问云服务；首次使用在 `.runtime/ocr-languages/` 准备本地语言包。OCR 结果必须核对人名、数字、日期和阅读顺序；装饰图形不推断为个人经历。TXT 支持 UTF-8、带 BOM 的 UTF-16 和 GB18030 中文编码。空文件、损坏文件和扩展名不匹配会提示错误，保留已有经历。
 
 打开根地址 `http://127.0.0.1:4173/` 默认进入工作台；明确带 `#jobs` 等页面锚点的链接仍打开对应页面。
 
@@ -56,28 +56,36 @@ PDF 最多 100 页；扫描件、图片或无文字页会提示先做 OCR，加�
 
 ## 本机 Cursor
 
-使用你自己的 Cursor CLI 登录，不需要 OpenAI API Key。订阅额度与 CLI 可用模型以 Cursor 账户为准。
+在「AI 与数据设置」选择 Cursor，点击「检测并连接」。已有 CLI 和登录会直接复用；Windows 未安装时点击「安装连接工具」，从 Cursor 官网获取官方包。然后点击「Cursor 网页登录」，再打开页面给出的官方授权链接，完成登录后点击「检查 Cursor 登录」。也可在展开区域填写自己的 Cursor API Key。连接开关保存在 SQLite，立即生效并跨重启保留，不必编辑代码或 .env。旧 FMJ_ALLOW_CURSOR 环境配置在尚无页面配置时仍兼容。macOS / Linux 目前使用官方安装器安装 CLI 后再检测连接。
 
-1. 安装 [官方 Cursor CLI](https://cursor.com/docs/cli/installation)，或在 Windows 双击本项目 `Install-Cursor.cmd` 安装到被 Git 忽略的 `.runtime/cursor-cli/`。
-2. 双击 `Login-Cursor.cmd`（或 `npm run cursor:login`）完成官方登录。
-3. 复制 `.env.example` 为 `.env.local`，将 `FMJ_ALLOW_CURSOR=0` 改为 `FMJ_ALLOW_CURSOR=1`。重启服务，在设置中检查登录。
+网页操作需要本地会话令牌；不读取、展示或复制 Cursor 的登录密钥。网页登录凭证由 Cursor CLI 管理；手动填写的 Cursor API Key 只保存在当前后端进程内存，子进程通过环境变量接收，不放到命令行参数。断开只停用 FoundMyJob 的连接，不退出其他应用的 Cursor 账户。官方协议和可用额度由用户自己的账户决定。
 
-GitHub 默认关闭 Cursor 权限。`.env.local`、CLI、登录信息均不上传；其他人克隆仓库后需要在自己的电脑登录自己的 Cursor。
+生成仍使用只读 ask 模式和独立临时目录，禁止 Shell、文件读写、WebFetch 和 MCP；个人档案与岗位事实仅在用户确认生成后发送给所选服务。安装及连接不代表生成结果已核验。
 
-可用 `CURSOR_CLI_PATH` 指定**原生可执行文件**路径；不接受 `.cmd` / `.bat` / `.ps1` 作为生成命令。项目安装器会使用官方包中的 Node + index.js，以参数数组启动，不经 shell 拼接用户内容。
-
-生成使用 `--print --mode ask --output-format json`。每次创建独立临时工作目录，配置禁止文件读写、Shell、WebFetch、MCP；提示词要求只使用档案事实。仍须人工核实模型生成的全部内容。
+官方依据：[Cursor 安装](https://cursor.com/docs/cli/installation)、[网页登录及 API Key](https://cursor.com/docs/cli/reference/authentication)。
 
 ## 自带 API Key 与免费模型
 
-- 接口：DeepSeek、SiliconFlow、OpenRouter、Groq，固定官方 API 地址，避免把 Key 发到自定义未知端点。
+- 接口：DeepSeek、Kimi / Moonshot、豆包 / 火山方舟、Grok / xAI、Gemini、SiliconFlow、OpenRouter、Groq，固定官方 API 地址，避免把 Key 发到自定义未知端点。
 - 用户在设置输入自己的 Key；只保存在**当前本机后端进程内存**，不写数据库、localStorage、导出或日志，重启后需重新输入。浏览器不通过接口读回完整 Key。
-- 点击加载模型，从厂商获取最新列表。不会自动换厂商、模型或改用平台 Key。
+- 点击加载模型，从厂商获取最新列表；也可直接填写控制台模型 ID。豆包使用手工填写已开通的 Model ID 或推理接入点 ID。不会自动换厂商、模型或改用平台 Key。
 - OpenRouter 可筛选实时价格中输入和输出均为零的模型；免费模式每次调用前重新核对价格，不满足就停止。仍受厂商速率、账户和服务可用性限制。
 - SiliconFlow / Groq 有免费模型或 Free 账户方案，但列表不提供足够计费信息时不伪称当前账号一定免费。请使用页面上的官方价格与限额链接核实。
 - API 适配器不读取开发者个人环境变量里的 Key，不内置任何共享 Key。
 
 实际数据会发给你选择的厂商；生成前显示服务和模型并要求确认。失败不会悄悄回退到规则版或付费模型。
+
+## FOB 自部署模型
+
+自部署模型接入已预留并实现：在后端配置 `FMJ_SELF_HOSTED_BASE_URL`、`FMJ_SELF_HOSTED_MODEL` 和可选的 `FMJ_SELF_HOSTED_API_KEY`，即可选择「FOB 自部署模型」生成简历。支持兼容的 `/models` 与 `/chat/completions` 接口、连接检测、超时及输出上限配置。地址和服务密钥由部署者管理，不返回网页或 JSON 导出。配置示例和接口说明见 [自部署模型接入](docs/SELF_HOSTED_MODEL.md)。未配置时不会调用；当前本机访问限制、单任务生成和未开放计费的状态保持不变。
+
+## 简历模板与证件照
+
+当前提供 12 套模板：原有经典 ATS、校招清爽、现代商务、欧式模块、创意侧栏，以及国内端正规范、国内校招、国内现代履历、国际照片版、北美精简、英式雅致、资深专业。四套照片模板可显示独立上传的证件照，其余模板不显示照片。模板选择可展开／收起。
+
+在简历工作室上传 JPG / PNG / WebP（最大 5 MB），在浏览器居中裁切为 300 × 420 JPEG，点击保存后与该简历一起写入数据库和版本记录。证件照不复用用户头像，也不发送给简历生成模型。照片修改会使审核失效；审核后的 PDF 打印包含照片，打印前等待图片解码。Markdown 导出保持文本，不嵌入照片。
+
+模板目录包含稳定 ID、市场、照片支持、access、creditCost 和 entitlementKey；GET /api/resume-templates 返回模板及可用性，保存时后端核验权限。所有模板目前 access=free、creditCost=0；后续可通过服务端权益接入付费模板，当前没有购买、扣分或支付接口。本地客户端模板元数据不是可用于公网销售的完整授权系统。
 
 ## 平台积分与未来商业版
 
@@ -125,6 +133,7 @@ GitHub 默认关闭 Cursor 权限。`.env.local`、CLI、登录信息均不上�
 - `POST /api/profiles/create`：用 `label`、`market`、`resumeLanguage` 新建画像，可传 `copyFrom` 复制已有画像，返回 `createdProfileId`。
 - `POST /api/profiles/save`（或 `/api/profile`）：保存完整画像字段，必须带 `id`、`revision` 防止覆盖其他画像或较新的修改。
 - `POST /api/profiles/archive`：带 `id`、`revision`、`archived` 归档或恢复画像。
+- `GET /api/cursor/status`、`POST /api/cursor/connect`、`/api/cursor/install`、`/api/cursor/login`、`/api/cursor/key`、`/api/cursor/disable`：页面内检测、安装、登录和配置本机连接；需要会话令牌。
 - `POST /api/settings`：保存非敏感设置，带 `revision` 防覆盖。
 - `POST /api/credentials`：设置／清除内存中的个人 Key。
 - `GET /api/models?provider=...`：加载对应厂商模型。
@@ -133,7 +142,7 @@ GitHub 默认关闭 Cursor 权限。`.env.local`、CLI、登录信息均不上�
 - `POST /api/jobs/import`、`/api/sources`：导入真实 JD、添加 Greenhouse / Lever 招聘源。
 - `POST /api/generate`：必须带 `profileId`、`profileRevision`、`jobId`，请求幂等生成任务；可覆盖画像默认语言。`GET /api/tasks/:id` 查看结果。
 - `POST /api/applications`：带 `jobId`、`profileId` 添加投递计划，同一岗位不同画像分别跟踪。
-- `POST /api/resumes/save`：编辑／审核；`/api/applications/status`：手动记录投递状态。
+- `POST /api/resumes/save`：编辑／审核，并可保存 layout 与 photo；`/api/applications/status`：手动记录投递状态。
 
 变更接口要求 JSON、同源 Host/Origin、`X-FMJ-Token`；不开放 CORS。
 
@@ -157,3 +166,5 @@ Workday 每家公司每次最多读取 200 条关键词结果，优先为目标�
 同步和官网搜索使用最多 3 个并发来源，任一来源完成后立即处理下一个，慢来源不再阻塞同批的其他位置。进度卡片仅保留标题、实际处理来源数、百分比、进度条、已用时间、已读取岗位数和成功／失败统计。百分比按处理完毕的来源数计算，失败也计入已处理；不代表时间进度。向下滚动至顶部进度卡片离开视野时，页面底部显示半透明小进度条；滚回顶部后自动隐藏。同步结束后两处进度显示平滑淡出并移除，不保留完成状态卡片；系统开启减少动态效果时直接移除。详细来源状态可在 AI 与数据设置查看。单来源官网分页与详情请求仍受官网响应、限流和各适配器超时限制。
 
 普通搜索直接使用已加载的岗位库，国内外一致，不发起官网抓取；匹配排序对每个岗位在单次搜索中只计算一次匹配度。发现页同步遵循当前国内／国外范围（未指定地区时同步全部），选中公司时只更新该来源；未知范围的自定义招聘板继续保留。设置页「同步所有岗位源」仍可更新全部来源。
+
+OCR 使用 [Tesseract.js](https://github.com/naptha/tesseract.js) 和随 npm 依赖安装的中英文语言包；PDF 本地渲染使用 PDF.js 与 @napi-rs/canvas。

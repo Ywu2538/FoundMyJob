@@ -1,3 +1,4 @@
+import {resumeLayout} from './resume-layouts.js';
 // Render the small Markdown subset used by generated resumes. All candidate text is
 // escaped before formatting marks are introduced, so source HTML is never trusted.
 const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({
@@ -85,10 +86,12 @@ export function orderResumeMarkdown(markdown,layout='classic') {
   return [...header,...sections.filter(isSkills).flat(),...sections.filter(section=>!isSkills(section)).flat()].join('\n');
 }
 
-export function renderResumeMarkdown(markdown,layout='classic') {
+export function renderResumeMarkdown(markdown,layout='classic',{photo=''}={}) {
   const items=blocks(orderResumeMarkdown(markdown,layout)),firstSection=items.findIndex(item=>item.kind==='heading'&&item.level===2);
   const headerEnd=firstSection>=0?firstSection:items.some(item=>item.kind==='heading'&&item.level===1)?items.length:0;
-  const header=headerEnd?`<header class="resume-header">${renderBlocks(items.slice(0,headerEnd))}</header>`:'';
+  const portrait=resumeLayout(layout)?.photo&&/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(photo)?`<img class="resume-portrait" src="${escapeHtml(photo)}" alt=""/>`:'';
+  const headerText=renderBlocks(items.slice(0,headerEnd));
+  const header=portrait?`<header class="resume-header has-portrait">${portrait}<div>${headerText}</div></header>`:headerEnd?`<header class="resume-header">${headerText}</header>`:'';
   const sections=[];
   let current=[];
   for(const item of items.slice(headerEnd)){
@@ -98,7 +101,7 @@ export function renderResumeMarkdown(markdown,layout='classic') {
   if(current.length)sections.push(current);
   const html=section=>`<section class="resume-section">${renderSection(section)}</section>`;
   const side=section=>/技能|技术栈|教育|学历|证书|语言能力|联系方式|skills|education|certif|languages|contact/i.test(section.find(item=>item.kind==='heading'&&item.level===2)?.text||'');
-  if(layout==='sidebar'&&sections.some(side)&&sections.some(section=>!side(section))){
+  if(['sidebar','cn-modern'].includes(layout)&&sections.some(side)&&sections.some(section=>!side(section))){
     return `<div class="resume-document"><aside class="resume-sidebar">${header}${sections.filter(side).map(html).join('')}</aside><div class="resume-body">${sections.filter(section=>!side(section)).map(html).join('')}</div></div>`;
   }
   return `<div class="resume-document">${header}<div class="resume-body">${sections.map(html).join('')}</div></div>`;

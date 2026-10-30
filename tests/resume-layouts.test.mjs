@@ -7,15 +7,15 @@ import {manualJob} from '../server/jobs.mjs';
 import {renderResumeMarkdown} from '../dist/resume-markdown.js';
 import {DEFAULT_RESUME_LAYOUT,RESUME_LAYOUTS,isResumeLayout,normalizeResumeLayout,resumeLayoutPickerHtml,resumePrintDocumentHtml} from '../dist/resume-layouts.js';
 
-test('five layouts offer distinct choices and print the rendered document safely',()=>{
-  assert.equal(RESUME_LAYOUTS.length,5);
-  assert.equal(new Set(RESUME_LAYOUTS.map(layout=>layout.id)).size,5);
+test('twelve layouts offer distinct choices and print the rendered document safely',()=>{
+  assert.equal(RESUME_LAYOUTS.length,12);
+  assert.equal(new Set(RESUME_LAYOUTS.map(layout=>layout.id)).size,12);
   assert.equal(DEFAULT_RESUME_LAYOUT,'classic');
   assert.equal(normalizeResumeLayout('unknown'),'classic');
   assert.equal(isResumeLayout('sidebar'),true);
   assert.equal(RESUME_LAYOUTS.find(layout=>layout.id==='sidebar').ats,false);
   const picker=resumeLayoutPickerHtml('modern');
-  assert.equal((picker.match(/name="resume-template"/g)||[]).length,5);
+  assert.equal((picker.match(/name="resume-template"/g)||[]).length,12);
   assert.match(picker,/value="modern" checked/);
   const html=resumePrintDocumentHtml({title:'<candidate>',content:'# Candidate\n## Skills\n- SQL\n## Work\n### Role\n**Result**',layout:'sidebar',buttonLabel:'Print'},renderResumeMarkdown);
   assert.match(html,/layout-sidebar/);

@@ -10,6 +10,7 @@ import {t as tr,getLocale,setLocale,localizedLabel} from '../dist/i18n.js';
 import {manualJob} from '../server/jobs.mjs';
 import {COMPANY_LOGOS} from '../dist/company-logos.js';
 import {Store} from '../server/db.mjs';
+import {cursorSettingsHtml} from '../dist/cursor-settings.js';
 
 function fixture() {
   const store=new Store(':memory:');
@@ -59,7 +60,7 @@ test('legacy featured sources, added overseas sources and duplicate company entr
 // Exercise the real rendering and profile-change handler without a browser dependency.
 function appHarness(snapshot) {
   const handlers={};
-  const context=vm.createContext({...core,...catalog,...preferences,profileTrackFields,tr,getLocale,setLocale,localizedLabel,e:core.escapeHtml,COMPANY_LOGOS,
+  const context=vm.createContext({...core,...catalog,...preferences,profileTrackFields,cursorSettingsHtml,tr,getLocale,setLocale,localizedLabel,e:core.escapeHtml,COMPANY_LOGOS,
     document:{addEventListener:(name,handler)=>{handlers[name]=handler;},querySelector:()=>null,querySelectorAll:()=>[]},
     window:{addEventListener(){}},location:{hash:'#jobs'},FormData:class{constructor(form){return form.fields;}},
     sessionStorage:{getItem:()=>null,setItem(){}},snapshot,

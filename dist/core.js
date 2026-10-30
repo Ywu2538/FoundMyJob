@@ -200,6 +200,6 @@ export function editResume(resume, content) {
   if (!content.trim()) throw new Error('简历内容不能为空。');
   return { ...resume, content, status:'draft', reviewedAt:null };
 }
-export function markdownToHtml(markdown,layout='classic') {
-  return renderResumeMarkdown(markdown,layout);
+export function markdownToHtml(markdown,layout='classic',options={}) {
+  return renderResumeMarkdown(markdown,layout,options);
 }

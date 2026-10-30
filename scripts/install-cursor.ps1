@@ -17,4 +17,4 @@ $packageUrl = $match.Value + "windows/$arch/agent-cli-package.zip"
 $zipFile = Join-Path $runtimeDir 'cursor-cli.zip'
 Invoke-WebRequest -UseBasicParsing $packageUrl -OutFile $zipFile
 Expand-Archive -LiteralPath $zipFile -DestinationPath $installDir -Force
-Write-Host 'Installed official Cursor CLI locally. Next: Login-Cursor.cmd and enable FMJ_ALLOW_CURSOR in .env.local.'
+Write-Host 'Installed official Cursor CLI locally. Return to FoundMyJob and sign in to Cursor. No restart is required.'

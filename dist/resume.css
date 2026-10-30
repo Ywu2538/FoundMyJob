@@ -100,3 +100,58 @@ body.resume-print-page{margin:0;background:#e8e8e8}
   .resume-paper.layout-sidebar .resume-header{padding:0 0 3mm}
   .resume-paper.layout-sidebar .resume-body{padding:6mm}
 }
+
+/* Portraits and regional resume layouts. */
+.resume-template-options{grid-template-columns:repeat(auto-fit,minmax(145px,1fr));max-height:248px;overflow:auto;padding:3px}
+.resume-template-thumbnail{position:relative}
+.resume-template-thumbnail.with-photo:after{content:'';position:absolute;right:6px;top:6px;width:19px;height:27px;background:#d0d6df;border:1px solid #b4becd;border-radius:2px}
+.resume-template-thumbnail.with-photo i{max-width:65%}
+.resume-photo-tools{display:flex;align-items:center;gap:16px;padding:14px 25px;background:#faf9fc;border-bottom:1px solid #e9e2ee}
+.resume-photo-tools strong{font-size:12px}.resume-photo-tools p{font-size:11px;color:#71617d;margin:6px 0;line-height:1.6}
+.resume-photo-tools img{width:43px;height:60px;object-fit:cover;border-radius:3px}.resume-photo-tools .button{padding:7px 12px;font-size:11px}
+.resume-photo-tools [role=status]{font-size:11px;color:#71617d}.resume-photo-tools .button-row{flex-wrap:wrap}
+.resume-paper .resume-header.has-portrait{display:flex;flex-direction:row-reverse;align-items:flex-start;justify-content:space-between;gap:20px;text-align:left;min-height:112px;break-inside:avoid}
+.resume-paper .resume-header.has-portrait>div{flex:1;min-width:0}
+.resume-paper .resume-portrait{width:78px;height:109px;object-fit:cover;flex-shrink:0;border:1px solid #d8dce0;border-radius:2px}
+.resume-paper.layout-cn-formal{--resume-accent:#1c4267}
+.resume-paper.layout-cn-formal h1{color:#1c4267;font-size:29px;letter-spacing:.08em}
+.resume-paper.layout-cn-formal .resume-header{border-bottom:3px solid #1c4267;padding-bottom:14px}
+.resume-paper.layout-cn-formal h2{background:#edf2f7;border:0;border-left:5px solid #1c4267;padding:7px 10px}
+.resume-paper.layout-cn-campus{--resume-accent:#23776e}
+.resume-paper.layout-cn-campus h1{color:#23776e;font-size:26px}
+.resume-paper.layout-cn-campus .resume-header{border-bottom:2px solid #23776e;padding-bottom:16px}
+.resume-paper.layout-cn-campus h2{border-bottom:1px solid #91bcb5;color:#23776e}
+.resume-paper.layout-cn-campus h2:before{content:'';display:inline-block;width:7px;height:7px;background:#23776e;margin-right:8px}
+.resume-paper.layout-cn-modern{padding:0;--resume-accent:#29485f}
+.resume-paper.layout-cn-modern .resume-document{display:grid;grid-template-columns:32% 68%}
+.resume-paper.layout-cn-modern .resume-document:not(:has(.resume-sidebar)){display:block;padding:26px}
+.resume-paper.layout-cn-modern .resume-sidebar{padding:24px 18px;background:#edf2f6;border-top:7px solid #29485f;min-width:0}
+.resume-paper.layout-cn-modern .resume-body{padding:24px;min-width:0}
+.resume-paper.layout-cn-modern .resume-header.has-portrait{flex-direction:column;gap:14px}
+.resume-paper.layout-cn-modern h1{font-size:23px;color:#29485f}
+.resume-paper.layout-cn-modern h2{border-bottom:2px solid #bacbd7}
+.resume-paper.layout-international-photo{--resume-accent:#4d4e52;font-family:Georgia,'Microsoft YaHei',serif}
+.resume-paper.layout-international-photo .resume-header{border-bottom:1px solid #888;padding-bottom:16px}
+.resume-paper.layout-international-photo h1{font-size:29px;font-weight:400}
+.resume-paper.layout-international-photo h2{text-transform:uppercase;font-size:12px;letter-spacing:.07em}
+.resume-paper.layout-north-america .resume-header{text-align:center;border-bottom:1px solid #333}
+.resume-paper.layout-north-america h1{font-size:23px;letter-spacing:.05em}
+.resume-paper.layout-north-america h2{text-transform:uppercase;font-size:12px;margin-top:12px;border-bottom:1px solid #555}
+.resume-paper.layout-north-america p,.resume-paper.layout-north-america li{line-height:1.42;margin:3px 0}
+.resume-paper.layout-editorial h1,.resume-paper.layout-editorial h2{font-family:Georgia,'Times New Roman','SimSun',serif;font-weight:400}
+.resume-paper.layout-editorial h1{font-size:32px}.resume-paper.layout-editorial h2{font-size:17px;border-bottom:1px solid #d0d0d0}
+.resume-paper.layout-editorial .resume-header{border-bottom:4px double #666}
+.resume-paper.layout-executive{--resume-accent:#72533d}
+.resume-paper.layout-executive h1{font-size:28px;color:#72533d;letter-spacing:.04em}
+.resume-paper.layout-executive .resume-header{border-bottom:3px solid #72533d;padding-bottom:15px}
+.resume-paper.layout-executive h2{border-bottom:1px solid #bca38e;font-size:13px;letter-spacing:.04em}
+@media print{.resume-paper .resume-portrait{width:25mm;height:35mm}.resume-paper .resume-header.has-portrait{min-height:35mm}.resume-paper.layout-cn-modern .resume-sidebar,.resume-paper.layout-cn-modern .resume-body{padding:5mm}.resume-paper.layout-cn-modern .resume-document{grid-template-columns:52mm minmax(0,1fr)}}
+.resume-template-picker details>summary{display:flex;justify-content:space-between;gap:14px;padding:10px 12px;border:1px solid #dfd7e8;border-radius:8px;cursor:pointer;font-size:12px;color:#66537b;background:#faf8fc}
+.resume-template-picker details>summary:after{content:'⌄'}
+.resume-template-picker details[open]>summary{margin-bottom:12px}
+.resume-template-option[data-layout="cn-formal"] .resume-template-thumbnail{border-bottom:4px solid #1c4267}
+.resume-template-option[data-layout="cn-campus"] .resume-template-thumbnail{border-top:3px solid #23776e}
+.resume-template-option[data-layout="cn-modern"] .resume-template-thumbnail{border-left:14px solid #29485f}
+.resume-template-option[data-layout="editorial"] .resume-template-thumbnail{border-top:3px double #666}
+.resume-template-option[data-layout="executive"] .resume-template-thumbnail{border-bottom:4px solid #72533d}
+.resume-template-option[data-layout="north-america"] .resume-template-thumbnail i:first-child{align-self:center;background:#333}

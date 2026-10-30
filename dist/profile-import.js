@@ -2,7 +2,7 @@ import {t as tr} from './i18n.js';
 import {escapeHtml as e} from './core.js';
 
 export async function previewDocumentImport(file,{token,profileLabel,showModal,closeModal,readField,writeFields}){
-  if(!/\.(docx?|pdf|txt|md)$/i.test(file.name))throw new Error(tr('请选择 Word（.docx / .doc）、PDF、TXT 或 Markdown 文件。'));
+  if(!/\.(docx?|pdf|txt|md|png|jpe?g|webp|bmp)$/i.test(file.name))throw new Error(tr('请选择 Word、PDF、TXT、Markdown 或 PNG / JPG / WebP / BMP 图片。','Choose Word, PDF, text or PNG / JPG / WebP / BMP images.'));
   if(file.size>10*1024*1024)throw new Error(tr('文件不能超过 10 MB。'));
   if(!file.size)throw new Error(tr('文件为空，请选择有内容的文件。'));
   showModal(tr('导入经历文件','Import experience file'),`<div class="dialog-content"><p>${e(file.name)}</p><p role="status">${tr('正在提取文字，请稍候…','Extracting text, please wait…')}</p><p class="field-help">${tr('文件仅在本机解析，不会发送给 AI 服务。','Files are processed on this device and are not sent to an AI service.')}</p><button type="button" class="button secondary" data-action="close-modal">${tr('取消','Cancel')}</button></div>`,true);
@@ -20,7 +20,9 @@ export async function previewDocumentImport(file,{token,profileLabel,showModal,c
     dialog.querySelector('.dialog-content').innerHTML=`<form id="profile-import-form">
       <div class="import-intro"><p class="import-file"><strong>${e(file.name)}</strong> · ${e(profileLabel)}</p>
       <p class="field-help">${tr('从原文选中段落，复制粘贴到对应栏目；也可以点击「填入选中文字」。各栏可自由编辑，确认后再保存当前画像。','Select passages in the source and copy/paste them into the matching fields, or use “Insert selected text”. Edit each field, then apply and save the profile.')}</p>
-      ${result.emptyPages?.length?`<p class="notice warning">${tr('以下页没有可提取的文字，请检查是否需要 OCR：','These pages have no extractable text; check whether OCR is needed: ')}${result.emptyPages.join(', ')}</p>`:''}
+      ${result.ocrUsed?`<p class="notice">${tr('已使用本地 Tesseract OCR（中文 + English）。请核对人名、日期、数字和分栏顺序。','Processed with local Tesseract OCR (Chinese + English). Check names, dates, numbers and column order.')}</p>`:''}
+      ${(result.warnings||[]).map(message=>`<p class="notice warning">${e(tr(message))}</p>`).join('')}
+      ${result.emptyPages?.length?`<p class="notice warning">${tr('OCR 后仍未识别出文字的页：','Pages with no readable text after OCR: ')}${result.emptyPages.join(', ')}</p>`:''}
       </div><div class="import-workspace"><section class="import-source">
         <label for="import-source-text">${tr('提取的原文','Extracted source text')}</label>
         <p class="field-help">${tr('选中文字后 Ctrl+C 复制，在目标栏目中 Ctrl+V 粘贴。','Select text and press Ctrl+C to copy, then Ctrl+V in the destination field.')}</p>
