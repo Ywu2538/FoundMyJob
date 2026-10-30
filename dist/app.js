@@ -2,6 +2,7 @@ import {COUNTRIES,INDUSTRIES,FORTUNE_URL,FORTUNE_YEAR,companyNames,companyKey,co
 import {t as tr,getLocale,setLocale,localizedLabel} from './i18n.js';
 import {COMPANY_LOGOS} from './company-logos.js';
 import {profileTrackFields} from './profile-track.js';
+import {previewDocumentImport} from './profile-import.js';
 import {normalizeResumeLayout,resumeLayoutPickerHtml,resumePrintDocumentHtml} from './resume-layouts.js';
 import {orderResumeMarkdown} from './resume-markdown.js';
 import {resumeReviewTips} from './resume-review-tips.js';
@@ -45,7 +46,7 @@ const icon = (name, cls='') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fil
 const $ = s=>document.querySelector(s);
 let state, JOBS=[], storageWarning='';
 const routes={dashboard:'工作台',jobs:'发现岗位',resumes:'我的简历',tracker:'投递追踪',profile:'求职画像',credits:'生成记录',settings:'AI 与数据设置'};
-const ui={profileId:null,drafts:{},recordProfileId:'',route:routes[location.hash.slice(1)]?location.hash.slice(1):'jobs',...defaultJobFilters(),companiesOpen:false,generating:false,modal:null,mobileMenu:false,models:[],provider:'cursor',syncing:false,syncProgress:null,syncMonitor:null};
+const ui={profileId:null,drafts:{},recordProfileId:'',route:routes[location.hash.slice(1)]?location.hash.slice(1):'dashboard',...defaultJobFilters(),companiesOpen:false,generating:false,modal:null,mobileMenu:false,models:[],provider:'cursor',syncing:false,syncProgress:null,syncMonitor:null};
 let currentJobResults=[],jobsObserver,syncDockCleanup;
 async function api(path,body) {
  const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(state?.token?{'X-FMJ-Token':state.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
@@ -110,19 +111,19 @@ const date = d=>new Date(d).toLocaleDateString(getLocale()==='en'?'en-CA':'zh-CN
 const jobById = id=>JOBS.find(j=>j.id===id);
 function toast(message) { const el=$('#toast'); el.textContent=tr(message); el.classList.add('visible'); clearTimeout(toast.timer); toast.timer=setTimeout(()=>el.classList.remove('visible'),4000); }
 function go(route) { if(!routes[route])return; ui.route=route;ui.mobileMenu=false;location.hash=route;render();window.scrollTo(0,0); }
-window.addEventListener('hashchange',()=>{if(routes[location.hash.slice(1)]){ui.route=location.hash.slice(1);render();}});
+window.addEventListener('hashchange',()=>{ui.route=routes[location.hash.slice(1)]?location.hash.slice(1):'dashboard';render();});
 
 
 function sidebar() {
   return `<aside class="sidebar ${ui.mobileMenu?'is-open':''}">
-    <a class="brand" href="#jobs"><img src="/favicon.svg" alt=""/><span>FoundMyJob<span class="brand-dot">.</span></span></a>
-    <div class="workspace"><span class="workspace-icon">${icon('briefcase')}</span><div><strong>${tr("我的求职空间")}</strong><small>${tr("让每一份努力，更有方向")}</small></div><span class="workspace-tag">LOCAL</span></div>
-    <div class="nav-caption">${tr("求职旅程")}</div>
+    <a class="brand" href="#dashboard"><img src="/favicon.svg" alt=""/><span>FoundMyJob<span class="brand-dot">.</span></span></a>
+    <div class="sidebar-navigation"><div class="nav-group"><div class="nav-caption">${tr("求职旅程")}</div>
     <nav aria-label="${tr("主导航")}">${[['dashboard','grid'],['jobs','search'],['resumes','file'],['tracker','briefcase']].map(([route,ico])=>navItem(route,ico)).join('')}</nav>
-    <div class="nav-divider"></div><div class="nav-caption">${tr("个人中心")}</div>
+    </div><div class="nav-group"><div class="nav-caption">${tr("个人中心")}</div>
     <nav aria-label="${tr("个人中心")}">${[['profile','user'],['credits','coin'],['settings','settings']].map(([route,ico])=>navItem(route,ico)).join('')}</nav>
+    </div></div>
     <div class="sidebar-bottom">
-    <button class="sidebar-user" data-action="nav" data-route="profile"><span class="avatar">${e(state.profile.name?.[0]||tr('你'))}</span><span><strong>${e(state.profile.name||tr('我的档案'))}</strong><small>${e(state.profile.label)}</small></span>${icon('chevron')}</button></div>
+    <button class="sidebar-user" data-action="nav" data-route="profile"><span class="avatar">${e(state.profile.name?.[0]||tr('你'))}</span><span class="sidebar-user-info"><strong>${e(state.profile.name||tr('我的档案'))}</strong><small>${e(state.profile.label)}</small></span>${icon('chevron')}</button></div>
   </aside>`;
 }
 function navItem(route,ico) {return `<button class="nav-item ${ui.route===route?'active':''}" data-action="nav" data-route="${route}" ${ui.route===route?'aria-current="page"':''}>${icon(ico)}<span>${tr(routes[route])}</span>${route==='jobs'?`<em>${JOBS.filter(j=>j.active).length}</em>`:route==='resumes'&&state.resumes.length?`<em>${state.resumes.length}</em>`:''}</button>`;}
@@ -132,16 +133,6 @@ function empty(heading,sub,action='jobs',label=tr('发现适合我的岗位')) {
 function stat(iconName,label,value,note,tone='purple') {return `<div class="stat"><span class="stat-icon ${tone}">${icon(iconName)}</span><div><span class="stat-label">${label}</span><strong>${value}</strong><small>${note}</small></div></div>`;}
 
 
-function sourceCoverage(summary) {
- const groupRows=(kind,label)=>{
-  const rows=JOBS.filter(j=>j.active&&jobSourceKind(j)===kind);
-  return rows.length?'<tr><td>'+label+'</td><td>'+rows.length+tr('</td><td>见岗位详情</td><td>招聘状态待核验</td></tr>'):'';
- };
- return tr('<section class="source-coverage panel" aria-label="岗位库概览"><div class="section-title"><h2>岗位库概览</h2><button class="text-button" data-action="nav" data-route="jobs">浏览岗位 ')+icon('arrow')+'</button></div><p class="source-coverage-total"><strong>'+summary.active+tr('</strong> 条可浏览记录 · ')+summary.companies+tr(' 家公司</p><p>企业接口 ')+summary.synced+tr(' 条 · 官网检索待核验 ')+summary.pending+tr(' 条 · 手动导入 ')+summary.manual+tr(' 条 · 历史已下架 ')+summary.archived+tr(' 条</p><details><summary>查看各来源数量与最近同步状态</summary><div class="table-scroll"><table><thead><tr><th>公司 / 来源</th><th>可浏览记录</th><th>最近同步</th><th>状态</th></tr></thead><tbody>')+state.sources.map(source=>{
- const rows=JOBS.filter(j=>j.active&&j.source===source.id);
- return '<tr><td>'+e(source.company)+'</td><td>'+rows.length+'</td><td>'+(source.syncedAt?e(new Date(source.syncedAt).toLocaleString('zh-CN')):tr('未同步'))+'</td><td>'+e(tr(source.status))+(source.error?' · '+e(source.error):'')+'</td></tr>';
- }).join('')+groupRows('discovered',tr('官网检索发现'))+groupRows('manual',tr('手动导入'))+tr('</tbody></table></div></details><p>统计涵盖整个岗位库。官网检索岗位带有待核验标记，招聘状态请以企业原文为准。</p></section>');
-}
 function continueDiscovery(groups) {
  const country=localizedLabel(COUNTRIES[ui.companyCountry]);
  return `<section class="domestic-discovery" aria-label="${tr('招聘官网入口','Official career sites')}">
@@ -325,14 +316,14 @@ function jobCard(j) {
 }
 function dashboardPage() {
  const recommended=filterJobs(JOBS.filter(j=>j.active),state.profile,profileJobFilters(state.profile)).slice(0,3);
- return `${title(`${tr("你好，")}${e(state.profile.name||tr('求职者'))}。`,tr('你的每一步，都在靠近更合适的下一站。'),`<button class="button primary" data-action="nav" data-route="jobs">${tr("发现新机会")} ${icon('arrow')}</button>`)}<div class="stats-row">${stat('bookmark',tr('收藏机会'),state.saved.length,tr('已经心动的岗位'))}${stat('file',tr('已生成简历'),state.resumes.length,tr('逐一为机会做准备'),'blue')}${stat('check',tr('已审核简历'),state.resumes.filter(r=>r.status==='reviewed').length,tr('可以进入投递流程'),'green')}${stat('briefcase',tr('投递记录'),state.applications.length,tr('记录你的求职旅程'),'peach')}</div>
+ return `<div class="dashboard-page">${title(`${tr("你好，")}${e(state.profile.name||tr('求职者'))}。`,tr('你的每一步，都在靠近更合适的下一站。'),`<button class="button primary" data-action="nav" data-route="jobs">${tr("发现新机会")} ${icon('arrow')}</button>`)}<div class="stats-row">${stat('bookmark',tr('收藏机会'),state.saved.length,tr('已经心动的岗位'))}${stat('file',tr('已生成简历'),state.resumes.length,tr('逐一为机会做准备'),'blue')}${stat('check',tr('已审核简历'),state.resumes.filter(r=>r.status==='reviewed').length,tr('可以进入投递流程'),'green')}${stat('briefcase',tr('投递记录'),state.applications.length,tr('记录你的求职旅程'),'peach')}</div>
  <section class="panel journey-panel"><div class="section-title"><h2>${tr("你的求职路径")}</h2><span class="muted">${tr("一步一步，把机会变成可能")}</span></div><div class="journey-steps">${[['user','01',tr('建立个人档案'),tr('让你的经历成为推荐的起点'),'profile'],['search','02',tr('发现心动岗位'),tr('从中国到北美，找到你的方向'),'jobs'],['file','03',tr('准备专属简历'),tr('围绕岗位要求，突出真实经历'),'resumes'],['briefcase','04',tr('审核并投递'),tr('确认每个细节，再迈出下一步'),'tracker']].map(([i,n,h,p,r])=>`<button class="journey-step" data-action="nav" data-route="${r}"><span class="step-number">${n}</span>${icon(i)}<h3>${h}</h3><p>${p}</p></button>`).join('')}</div></section>
- ${sourceCoverage(discoverySummary(JOBS,state.profile))}<div class="section-title margin-top"><h2>${tr("值得关注的机会")} <span class="count">${recommended.length}</span></h2><button class="text-button" data-action="nav" data-route="jobs">${tr("查看全部")} ${icon('arrow')}</button></div><div class="jobs-grid">${recommended.map(jobCard).join('')}</div><p class="data-disclaimer">${tr("请在岗位原文中核实最新招聘状态。")}</p>`;
+ <section class="dashboard-opportunities" aria-labelledby="dashboard-opportunities-title"><div class="section-title"><h2 id="dashboard-opportunities-title">${tr("值得关注的机会")} <span class="count">${recommended.length}</span></h2><button class="text-button" data-action="nav" data-route="jobs">${tr("查看全部")} ${icon('arrow')}</button></div>${recommended.length?`<div class="jobs-grid">${recommended.map(jobCard).join('')}</div><p class="data-disclaimer">${tr("请在岗位原文中核实最新招聘状态。")}</p>`:empty(tr('暂无符合当前偏好的机会','No opportunities match your preferences yet'),tr('前往发现岗位，调整筛选或同步最新岗位。','Explore jobs to adjust your filters or sync the latest openings.'))}</section></div>`;
 }
 function profilePage() {
  const p=ui.drafts[ui.profileId]||state.profile;
  const trackFields=profileTrackFields(p.track,tr);
- return `${title(tr('一个你，可以有多个求职方向。'),tr('按市场和职位分别整理画像，让每份简历都有明确的出发点。'),`<div class="button-row"><button class="button secondary" data-action="copy-profile">${tr("复制当前画像")}</button><button class="button primary" data-action="new-profile">${icon('plus')} ${tr("新建画像")}</button></div>`)}${profileSelector('edit')}<div class="profile-management"><span>${tr("共")} ${state.profiles.filter(p=>!p.archived).length} ${tr("份可用画像")}</span><button class="text-button" data-action="archive-profile" ${state.profiles.filter(p=>!p.archived).length<2?'disabled':''}>${tr("归档当前画像")}</button></div>${state.profiles.some(p=>p.archived)?`<details class="archived-profiles"><summary>${tr("已归档画像（保留历史简历和记录）")}</summary>${state.profiles.filter(p=>p.archived).map(p=>`<div><span>${e(p.label)}</span><button class="text-button" data-action="restore-profile" data-id="${p.id}">${tr("恢复使用")}</button></div>`).join('')}</details>`:''}<form id="profile-form" data-id="${p.id}" data-revision="${p.revision}" class="profile-layout"><div class="profile-form panel"><div class="section-title"><h2>${icon('user')} ${e(p.label)}</h2><span class="badge lilac">${profileCompletion(p)}${tr("% 已完善")}</span></div><p class="field-help" id="profile-draft-note">${ui.drafts[p.id]?tr('有未保存修改；搜索和生成使用已保存版本。'):tr('每份画像独立保存。可以复制真实经历，再调整面向不同岗位的重点。')}</p><div class="form-grid"><label>${tr("画像名称")} <span class="required">*</span><input name="label" required maxlength="100" value="${e(p.label)}" placeholder="${tr("例如：加拿大 · Data Engineer")}"/></label><label>${tr("招聘地点范围")}<select name="searchScope">${scopeOptions(p)}</select></label><input type="hidden" name="market" value="${e(p.market)}"/><label>${tr("默认简历语言")}<select name="resumeLanguage"><option value="zh" ${p.resumeLanguage==='zh'?'selected':''}>${tr("中文")}</option><option value="en" ${p.resumeLanguage==='en'?'selected':''}>English</option></select></label><label>${tr("姓名")} <span class="required">*</span><input name="name" required maxlength="80" value="${e(p.name)}"/></label><label>${tr("联系邮箱")} <span class="required">*</span><input name="email" required type="email" maxlength="120" value="${e(p.email)}"/></label><label>${tr("所在城市")}<input name="location" maxlength="120" value="${e(p.location)}"/></label><label>${tr("联系电话")} <span class="optional">${tr("选填")}</span><input name="phone" maxlength="60" value="${e(p.phone)}" placeholder="${tr("用于简历联系方式")}"/></label><label>${tr("求职阶段")}<select name="track"><option value="campus" ${p.track==='campus'?'selected':''}>${tr("校园招聘 / 实习")}</option><option value="experienced" ${p.track==='experienced'?'selected':''}>${tr("社会招聘")}</option></select></label><label>${tr("目标职位")}<input name="target" maxlength="160" value="${e(p.target)}" placeholder="${tr("例如：Data Engineer / Software Engineer")}"/></label></div><p class="field-help">${trackFields.guide}</p><div class="form-section"><h2>${icon('bolt')} ${tr("专业技能")}</h2><label><span class="field-help">${tr("使用逗号分隔，岗位匹配会参考这些技能")}</span><input name="skills" maxlength="1000" value="${e(p.skills.join(', '))}" placeholder="${tr("Figma, SQL, Python, 用户研究")}"/></label></div>${[['education','book',tr('教育经历'),tr('学校、专业、学位、时间、相关课程')],['experience','briefcase',...trackFields.experience],['projects','file',...trackFields.projects]].map(([key,ico,label,placeholder])=>`<div class="form-section"><h2>${icon(ico)} ${label}</h2><textarea name="${key}" rows="5" maxlength="12000" ${key==='education'?'required':''} placeholder="${placeholder}" aria-label="${label}">${e(p[key])}</textarea></div>`).join('')}${jobPreferencesForm(p)}<div class="form-footer"><span>${icon('shield')} ${tr("档案保存在本机 SQLite 数据库")}</span><button class="button primary" type="submit">${icon('check')} ${tr("保存当前画像")}</button></div></div><aside class="profile-aside"><div class="panel tips-panel"><span class="tip-icon">${icon('spark')}</span><h3>${tr("你的经历，就是最好的起点。")}</h3><p>${tr("无需一次写得完美。先记录事实，再为不同岗位选择最相关的内容。")}</p><ul><li>${tr("用清晰的动词说明你做了什么")}</li><li>${tr("写出能够核实的成果或数据")}</li><li>${tr("校招可以突出课程与项目")}</li><li>${tr("社招可以突出职责与工作成果")}</li></ul></div><div class="notice"><b>${tr("请填写你自己的真实经历")}</b><p>${tr("这里不会预填虚构经历。点击生成前，会让你确认将哪些数据发给所选 AI 服务。")}</p></div><button class="button secondary full-width" type="button" data-action="import-text">${icon('download')} ${tr("导入经历文本")}</button><input type="file" id="profile-file" accept=".txt,.md,text/plain,text/markdown" hidden/></aside></form>`;
+ return `${title(tr('一个你，可以有多个求职方向。'),tr('按市场和职位分别整理画像，让每份简历都有明确的出发点。'),`<div class="button-row"><button class="button secondary" data-action="copy-profile">${tr("复制当前画像")}</button><button class="button primary" data-action="new-profile">${icon('plus')} ${tr("新建画像")}</button></div>`)}${profileSelector('edit')}<div class="profile-management"><span>${tr("共")} ${state.profiles.filter(p=>!p.archived).length} ${tr("份可用画像")}</span><button class="text-button" data-action="archive-profile" ${state.profiles.filter(p=>!p.archived).length<2?'disabled':''}>${tr("归档当前画像")}</button></div>${state.profiles.some(p=>p.archived)?`<details class="archived-profiles"><summary>${tr("已归档画像（保留历史简历和记录）")}</summary>${state.profiles.filter(p=>p.archived).map(p=>`<div><span>${e(p.label)}</span><button class="text-button" data-action="restore-profile" data-id="${p.id}">${tr("恢复使用")}</button></div>`).join('')}</details>`:''}<form id="profile-form" data-id="${p.id}" data-revision="${p.revision}" class="profile-layout"><div class="profile-form panel"><div class="section-title"><h2>${icon('user')} ${e(p.label)}</h2><span class="badge lilac">${profileCompletion(p)}${tr("% 已完善")}</span></div><p class="field-help" id="profile-draft-note">${ui.drafts[p.id]?tr('有未保存修改；搜索和生成使用已保存版本。'):tr('每份画像独立保存。可以复制真实经历，再调整面向不同岗位的重点。')}</p><div class="form-grid"><label>${tr("画像名称")} <span class="required">*</span><input name="label" required maxlength="100" value="${e(p.label)}" placeholder="${tr("例如：加拿大 · Data Engineer")}"/></label><label>${tr("招聘地点范围")}<select name="searchScope">${scopeOptions(p)}</select></label><input type="hidden" name="market" value="${e(p.market)}"/><label>${tr("默认简历语言")}<select name="resumeLanguage"><option value="zh" ${p.resumeLanguage==='zh'?'selected':''}>${tr("中文")}</option><option value="en" ${p.resumeLanguage==='en'?'selected':''}>English</option></select></label><label>${tr("姓名")} <span class="required">*</span><input name="name" required maxlength="80" value="${e(p.name)}"/></label><label>${tr("联系邮箱")} <span class="required">*</span><input name="email" required type="email" maxlength="120" value="${e(p.email)}"/></label><label>${tr("所在城市")}<input name="location" maxlength="120" value="${e(p.location)}"/></label><label>${tr("联系电话")} <span class="optional">${tr("选填")}</span><input name="phone" maxlength="60" value="${e(p.phone)}" placeholder="${tr("用于简历联系方式")}"/></label><label>${tr("求职阶段")}<select name="track"><option value="campus" ${p.track==='campus'?'selected':''}>${tr("校园招聘 / 实习")}</option><option value="experienced" ${p.track==='experienced'?'selected':''}>${tr("社会招聘")}</option></select></label><label>${tr("目标职位")}<input name="target" maxlength="160" value="${e(p.target)}" placeholder="${tr("例如：Data Engineer / Software Engineer")}"/></label></div><p class="field-help">${trackFields.guide}</p><div class="form-section"><h2>${icon('bolt')} ${tr("专业技能")}</h2><label><span class="field-help">${tr("使用逗号分隔，岗位匹配会参考这些技能")}</span><input name="skills" maxlength="1000" value="${e(p.skills.join(', '))}" placeholder="${tr("Figma, SQL, Python, 用户研究")}"/></label></div>${[['education','book',tr('教育经历'),tr('学校、专业、学位、时间、相关课程')],['experience','briefcase',...trackFields.experience],['projects','file',...trackFields.projects]].map(([key,ico,label,placeholder])=>`<div class="form-section"><h2>${icon(ico)} ${label}</h2><textarea name="${key}" rows="5" maxlength="12000" ${key==='education'?'required':''} placeholder="${placeholder}" aria-label="${label}">${e(p[key])}</textarea></div>`).join('')}${jobPreferencesForm(p)}<div class="form-footer"><span>${icon('shield')} ${tr("档案保存在本机 SQLite 数据库")}</span><button class="button primary" type="submit">${icon('check')} ${tr("保存当前画像")}</button></div></div><aside class="profile-aside"><div class="panel tips-panel"><span class="tip-icon">${icon('spark')}</span><h3>${tr("你的经历，就是最好的起点。")}</h3><p>${tr("无需一次写得完美。先记录事实，再为不同岗位选择最相关的内容。")}</p><ul><li>${tr("用清晰的动词说明你做了什么")}</li><li>${tr("写出能够核实的成果或数据")}</li><li>${tr("校招可以突出课程与项目")}</li><li>${tr("社招可以突出职责与工作成果")}</li></ul></div><div class="notice"><b>${tr("请填写你自己的真实经历")}</b><p>${tr("这里不会预填虚构经历。点击生成前，会让你确认将哪些数据发给所选 AI 服务。")}</p></div><button class="button secondary full-width" type="button" data-action="import-text">${icon('download')} ${tr("导入经历文件","Import experience file")}</button><input type="file" id="profile-file" accept=".docx,.doc,.pdf,.txt,.md,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword,application/pdf,text/plain,text/markdown" hidden/><p class="field-help">${tr("支持 Word（.docx / .doc）、PDF、TXT、Markdown，最大 10 MB。扫描件请先做 OCR。","Word (.docx / .doc), PDF, TXT and Markdown, up to 10 MB. Scans require OCR first.")}</p></aside></form>`;
 }
 function resumesPage() {
  const resumes=records(state.resumes);
@@ -355,7 +346,7 @@ function render() {
  jobsObserver?.disconnect();jobsObserver=null;
  syncDockCleanup?.();syncDockCleanup=null;
  const page={jobs:jobsPage,dashboard:dashboardPage,profile:profilePage,resumes:resumesPage,tracker:trackerPage,credits:creditsPage,settings:settingsPage}[ui.route];
- $('#app').innerHTML=`${sidebar()}<div class="app-content">${header()}<main id="main">${storageWarning?`<div class="notice warning">${e(storageWarning)}</div>`:''}${syncProgressMarkup()}${page()}<footer class="app-footer"><span>FoundMyJob<span class="brand-dot">.</span> <span class="footer-motto">${tr("属于你的机会，正在前方。")}</span></span><span>Made for your next chapter <span class="footer-star">✦</span></span></footer></main></div>`;
+ $('#app').innerHTML=`${sidebar()}<div class="app-content">${header()}<main id="main" class="${ui.route==='dashboard'?'dashboard-main':''}">${storageWarning?`<div class="notice warning">${e(storageWarning)}</div>`:''}${syncProgressMarkup()}${page()}<footer class="app-footer"><span>FoundMyJob<span class="brand-dot">.</span> <span class="footer-motto">${tr("属于你的机会，正在前方。")}</span></span><span>Made for your next chapter <span class="footer-star">✦</span></span></footer></main></div>`;
  if($('[data-sync-shell]'))syncDockCleanup=observeSyncDock($('[data-sync-shell]'),$('[data-sync-dock]'));
  if(state.syncing||ui.syncing)document.querySelectorAll('[data-action="sync-jobs"],[data-action="search-official-jobs"]').forEach(el=>{el.disabled=true;});
  document.title=`${tr(routes[ui.route])} · FoundMyJob`;
@@ -538,7 +529,7 @@ document.addEventListener('change',async event=>{
   if(el.id==='generation-profile'){const id=ui.modal.id;chooseProfile(el.value);render();showJob(id);}
   if(el.id==='evidence-profile')showJobEvidence(el.value);
   if(el.id==='record-profile'){ui.recordProfileId=el.value;render();}
-  if(el.closest('#profile-form')){
+  if(el.closest('#profile-form')&&el.type!=='file'){
    const form=el.closest('#profile-form');
    if(el.name==='preferenceCountry'){
     form.elements.preferenceCity.value='';form.elements.preferenceCityCustom.value='';form.elements.market.value=el.value;
@@ -575,7 +566,14 @@ document.addEventListener('change',async event=>{
  if(el.id==='target-only'){ui.targetOnly=el.checked;ui.limit=ui.pageSize;render();}
   if(el.closest('#job-search')&&el.tagName==='SELECT'){applyJobSearch(Object.fromEntries(new FormData($('#job-search'))));render();}
   if(el.dataset.application){const a=state.applications.find(a=>a.id===el.dataset.application);await update('/api/applications/status',{id:a.id,status:el.value,revision:a.revision});render();toast(tr('投递进度已保存。'));}
-  if(el.id==='profile-file'&&el.files[0]){if(el.files[0].size>100000)throw new Error(tr('请导入小于 100 KB 的文本文件。'));const form=el.closest('#profile-form'),text=await el.files[0].text();form.querySelector('[name="experience"]').value=text;rememberProfileDraft(form);toast(tr('已填入所选画像的经历草稿，请检查并保存。'));}
+  if(el.id==='profile-file'&&el.files[0]){
+   const file=el.files[0],profileId=el.closest('#profile-form').dataset.id;el.value='';
+   const currentForm=()=>{const form=$('#profile-form');if(!form||form.dataset.id!==profileId)throw new Error(tr('画像已切换，请重新选择文件。','The profile changed. Please select the file again.'));return form;};
+   await previewDocumentImport(file,{token:state.token,profileLabel:state.profile.label,showModal:modal,closeModal,
+    readField:key=>currentForm().elements[key].value,
+    writeFields:changes=>{const form=currentForm();for(const [key,text] of Object.entries(changes))form.elements[key].value=text;rememberProfileDraft(form);toast(tr('已填入所选画像的经历草稿，请检查并保存。'));},
+   });
+  }
   if(el.id==='provider-select'){ui.provider=el.value;ui.models=[];ui.freeOnly=el.value==='openrouter';render();}
   if(el.id==='free-models'){ui.freeOnly=el.checked;render();}
  }catch(err){toast(err.message);if(el.dataset.application)render();}
@@ -588,7 +586,7 @@ function rememberProfileDraft(form=$('#profile-form')){
  form.querySelector('#profile-draft-note').textContent=tr('有未保存修改；搜索和生成使用已保存版本。');
 }
 window.addEventListener('beforeunload',event=>{if(Object.keys(ui.drafts).length){event.preventDefault();event.returnValue='';}});
-document.addEventListener('input',event=>{if(event.target.closest('#profile-form'))rememberProfileDraft();if(event.target.id==='resume-editor'){$('#resume-preview').innerHTML=markdownToHtml(event.target.value,normalizeResumeLayout(document.querySelector('input[name="resume-template"]:checked')?.value));$('#review-confirm').checked=false;}});
+document.addEventListener('input',event=>{if(event.target.closest('#profile-form')&&event.target.type!=='file')rememberProfileDraft();if(event.target.id==='resume-editor'){$('#resume-preview').innerHTML=markdownToHtml(event.target.value,normalizeResumeLayout(document.querySelector('input[name="resume-template"]:checked')?.value));$('#review-confirm').checked=false;}});
 
 async function boot() {
  try{await refresh();ui.provider=state.settings.provider;ui.freeOnly=state.settings.freeOnly===true;ui.syncing=state.syncing;render();if(state.syncing)void watchJobSync();}

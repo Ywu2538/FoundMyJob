@@ -14,6 +14,7 @@ import { profileSearchScope } from '../dist/core.js';
 import {DEFAULT_RESUME_LAYOUT,isResumeLayout} from '../dist/resume-layouts.js';
 import {JOB_COUNTRIES,WORK_PREFERENCES,resolvedJobPreferences,cityEntry,canonicalCity} from '../dist/job-preferences.js';
 import {overseasSearchQuery} from './overseas-sources.mjs';
+import {extractDocument,importFormat,readImportBody} from './document-import.mjs';
 
 const root=fileURLToPath(new URL('../dist/',import.meta.url));
 const overseasSourceIds=new Set(OVERSEAS_COMPANIES.map(company=>company.id).filter(Boolean));
@@ -23,6 +24,7 @@ files['/company-catalog.js']='company-catalog.js';
 files['/i18n.js']='i18n.js';
 files['/job-preferences.js']='job-preferences.js';
 files['/profile-track.js']='profile-track.js';
+files['/profile-import.js']='profile-import.js';
 files['/resume-markdown.js']='resume-markdown.js';
 files['/resume-layouts.js']='resume-layouts.js';
 files['/resume-review-tips.js']='resume-review-tips.js';
@@ -90,6 +92,12 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
       if(p==='/api/models'&&req.method==='GET') {if(req.headers['x-fmj-token']!==token)fail('本地会话验证失败，请刷新页面。',403);return json(res,200,{models:await providers.models(url.searchParams.get('provider'))});}
       if(p.startsWith('/api/')&&req.method==='POST') {
         if(req.headers['x-fmj-token']!==token)fail('本地会话验证失败，请刷新页面。',403);
+        if(p==='/api/profiles/import-document'){
+          if(req.headers['content-type']?.split(';')[0]!=='application/octet-stream')fail('请以文件格式上传。',415);
+          const filename=url.searchParams.get('filename');importFormat(filename);
+          const result=await extractDocument(filename,await readImportBody(req));
+          return json(res,200,result);
+        }
         if(!req.headers['content-type']?.startsWith('application/json'))fail('仅支持 JSON。',415);
         let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>256000)fail('请求过大。',413);}let input;try{input=JSON.parse(body);}catch{fail('请求 JSON 无效。');}if(!input||typeof input!=='object'||Array.isArray(input))fail('请求格式无效。');
         if(p==='/api/profiles/create') {

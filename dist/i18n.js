@@ -8,6 +8,26 @@ export function setLocale(value){
  return locale;
 }
 export const translations=Object.fromEntries(`
+请选择 Word（.docx / .doc）、PDF、TXT 或 Markdown 文件。|Choose a Word (.docx / .doc), PDF, TXT or Markdown file.
+文件不能超过 10 MB。|Files must be no larger than 10 MB.
+文件为空，请选择有内容的文件。|This file is empty. Choose a file with content.
+正在解析其他文件，请稍后重试。|Other files are being processed. Please try again shortly.
+文件解析超时，请拆分文件或另存为较小的文件后重试。|Processing timed out. Split the file or save a smaller copy and try again.
+文件解析失败，请另存为新的 Word 或 PDF 文件后重试。|Processing failed. Save a new Word or PDF copy and try again.
+文件解析中断，请检查文件后重试。|Processing was interrupted. Check the file and try again.
+文件内容与扩展名不符，请使用原始 Word 或 PDF 文件。|The content does not match the extension. Use the original Word or PDF file.
+无法识别文本编码，请另存为 UTF-8 文本后重试。|The text encoding could not be read. Save as UTF-8 and try again.
+文件不是可读取的纯文本，请使用原始 Word 或 PDF 文件。|This is not readable plain text. Use the original Word or PDF file.
+文件内容与扩展名不符，请在 Word 中另存为 .docx 后重试。|The content does not match the extension. Save as .docx in Word and try again.
+这不是有效的 PDF 文件，请重新导出后重试。|This is not a valid PDF. Export it again and retry.
+PDF 超过 100 页，请仅导入与经历有关的页面。|This PDF exceeds 100 pages. Import only the relevant pages.
+提取文字超过 100,000 字符，请拆分文件后导入。|The extracted text exceeds 100,000 characters. Split the file before importing.
+PDF 没有可提取的文字，可能是扫描件或图片。请先进行 OCR 文字识别，或导入原始 Word 文件。|This PDF has no extractable text and may be a scan or image. Run OCR first or import the original Word file.
+文件中没有可提取的文字，请检查内容或先进行 OCR 文字识别。|No text could be extracted. Check the content or run OCR first.
+部分文字无法正确解码，请另存为新的 Word、PDF 或 UTF-8 文本后重试。|Some text could not be decoded. Save a new Word, PDF or UTF-8 text copy and try again.
+PDF 已加密，请先解锁或导出无密码的副本后重试。|This PDF is encrypted. Unlock it or export a copy without a password and retry.
+无法读取文件，文件可能已损坏或加密。请另存为新的 Word 或 PDF 文件后重试。|The file could not be read. It may be damaged or encrypted. Save a new Word or PDF copy and retry.
+请以文件格式上传。|Upload the original file.
 求职偏好格式无效。|The job preferences format is invalid.
 城市与所选国家不一致。|The city does not match the selected country.
 请先选择城市所在国家。|Choose the country for this city first.

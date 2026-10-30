@@ -1,0 +1,4 @@
+# Preserve document bytes, including PDF cross-reference offsets, on every platform.
+*.pdf binary
+*.doc binary
+*.docx binary
