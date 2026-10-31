@@ -36,8 +36,10 @@ files['/resume-review-tips.js']='resume-review-tips.js';
 files['/job-evidence-view.js']='job-evidence-view.js';
 files['/sync-progress.js']='sync-progress.js';
 files['/resume.css']='resume.css';
+files['/fonts/dm-sans-latin-wght-normal.woff2']='fonts/dm-sans-latin-wght-normal.woff2';
+files['/fonts/dm-sans-latin-ext-wght-normal.woff2']='fonts/dm-sans-latin-ext-wght-normal.woff2';
 for(const asset of Object.values(COMPANY_LOGOS))files[asset]=asset.slice(1);
-const types={'.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'};
+const types={'.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.woff2':'font/woff2'};
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
 const string=(v,max,required=false)=>{if(typeof v!=='string'||v.length>max||(required&&!v.trim()))fail('输入字段为空或超过长度限制。');return v.trim();};
 const enumeration=(v,values)=>values.includes(v)?v:fail('选项无效。');
@@ -277,7 +279,7 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
       if(p.startsWith('/api/'))fail('接口不存在。',404);
       if(!['GET','HEAD'].includes(req.method))fail('Method not allowed',405);
       const file=files[p];if(!file)fail('Not found',404);
-      const content=await readFile(path.join(root,file));res.writeHead(200,{'Content-Type':types[path.extname(file)],'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cache-Control':'no-cache','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"});res.end(req.method==='HEAD'?undefined:content);
+      const content=await readFile(path.join(root,file));res.writeHead(200,{'Content-Type':types[path.extname(file)],'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cache-Control':'no-cache','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"});res.end(req.method==='HEAD'?undefined:content);
     }catch(error){if(!res.headersSent)json(res,error.status||400,{error:error.message?.includes('SQLITE')?'数据库操作未完成，请重试。':error.message||'服务暂时不可用。'});else res.end();}
   });
   // Recover only after binding succeeds; a second launch on an occupied port must not interrupt tasks.

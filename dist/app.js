@@ -57,9 +57,16 @@ async function api(path,body) {
  let result;try{result=await response.json();}catch{throw new Error(tr('本地后端未响应，请重新运行 Start-FoundMyJob.cmd。'));}
  if(!response.ok)throw new Error(result.error||tr('请求失败。'));return result;
 }
+const isCampus=()=>state?.capabilities?.deployment==='campus';
+// Campus deployment: the SuperUnknown portal serves its shared platform switcher and account menu on this origin.
+function loadPlatformMenu(){
+ if(document.querySelector('script[data-su-account]'))return;
+ const script=document.createElement('script');script.src='/shared/su-account.js';script.defer=true;script.dataset.suAccount='';document.head.append(script);
+}
 function accept(next){
  const previousSearch=state?.profile&&profileSearchSignature(state.profile);
  state=next;JOBS=state.jobs;
+ if(isCampus())loadPlatformMenu();
  if(!state.profiles)throw new Error(tr('服务需要升级，请停止并重新启动 FoundMyJob。'));
  const previous=ui.profileId;
  if(!ui.profileId){try{ui.profileId=sessionStorage.getItem('foundmyjob:profile');}catch{}}
@@ -142,7 +149,7 @@ function sidebar() {
   </aside>`;
 }
 function navItem(route,ico) {return `<button class="nav-item ${ui.route===route?'active':''}" data-action="nav" data-route="${route}" ${ui.route===route?'aria-current="page"':''}>${icon(ico)}<span>${tr(routes[route])}</span>${route==='jobs'?`<em>${JOBS.filter(j=>j.active).length}</em>`:route==='resumes'&&state.resumes.length?`<em>${state.resumes.length}</em>`:''}</button>`;}
-function header() {return `<header class="topbar"><div class="breadcrumb"><button class="icon-button mobile-only" data-action="menu" aria-label="${tr("展开导航")}">${icon('menu')}</button><span>${tr("我的求职空间")}</span>${icon('chevron')}<strong>${tr(routes[ui.route])}</strong></div><div class="topbar-right"><label class="language-switch">${icon('globe')}<select id="ui-language" aria-label="${tr("Interface language / 界面语言")}"><option value="zh" ${getLocale()==='zh'?'selected':''}>${tr("中文")}</option><option value="en" ${getLocale()==='en'?'selected':''}>English</option></select></label><span class="demo-pill"><i></i> ${tr("本地数据库已连接")}</span><button class="icon-button" data-action="notifications" aria-label="${tr("查看使用说明")}">${icon('bell')}<i class="notification-dot"></i></button><button class="avatar small" data-action="nav" data-route="account" aria-label="${tr("打开用户中心","Open user center")}">${avatarContents()}</button></div></header>`;}
+function header() {return `<header class="topbar"><div class="breadcrumb"><button class="icon-button mobile-only" data-action="menu" aria-label="${tr("展开导航")}">${icon('menu')}</button><span>${tr("我的求职空间")}</span>${icon('chevron')}<strong>${tr(routes[ui.route])}</strong></div><div class="topbar-right"><label class="language-switch">${icon('globe')}<select id="ui-language" aria-label="${tr("Interface language / 界面语言")}"><option value="zh" ${getLocale()==='zh'?'selected':''}>${tr("中文")}</option><option value="en" ${getLocale()==='en'?'selected':''}>English</option></select></label><span class="demo-pill"><i></i> ${isCampus()?tr('统一账号已登录','Signed in with SuperUnknown'):tr("本地数据库已连接")}</span><button class="icon-button" data-action="notifications" aria-label="${tr("查看使用说明")}">${icon('bell')}<i class="notification-dot"></i></button>${isCampus()?'<su-account current="jobs"></su-account>':`<button class="avatar small" data-action="nav" data-route="account" aria-label="${tr("打开用户中心","Open user center")}">${avatarContents()}</button>`}</div></header>`;}
 function title(heading,sub,button='') {return `<div class="page-title"><div><div class="eyebrow">YOUR NEXT CHAPTER</div><h1>${heading}</h1><p>${sub}</p></div>${button}</div>`;}
 function empty(heading,sub,action='jobs',label=tr('发现适合我的岗位')) {return `<div class="empty-state"><span class="empty-icon">${icon('file')}</span><h3>${heading}</h3><p>${sub}</p><button class="button primary" data-action="nav" data-route="${action}">${label}${icon('arrow')}</button></div>`;}
 function stat(iconName,label,value,note,tone='purple') {return `<div class="stat"><span class="stat-icon ${tone}">${icon(iconName)}</span><div><span class="stat-label">${label}</span><strong>${value}</strong><small>${note}</small></div></div>`;}
