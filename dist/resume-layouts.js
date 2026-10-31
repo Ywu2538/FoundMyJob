@@ -30,5 +30,5 @@ export function resumeLayoutPickerHtml(selected,translate=(zh)=>zh){
 
 export function resumePrintDocumentHtml({title,content,layout,photo,buttonLabel},renderMarkdown){
   const selected=normalizeResumeLayout(layout);
-  return `<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><link rel="stylesheet" href="/resume.css"></head><body class="resume-print-page"><div class="resume-print-actions"><button id="print" type="button">${escapeHtml(buttonLabel)}</button></div><article class="resume-paper layout-${selected}">${renderMarkdown(content,selected,{photo})}</article></body></html>`;
+  return `<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><link rel="stylesheet" href="resume.css"></head><body class="resume-print-page"><div class="resume-print-actions"><button id="print" type="button">${escapeHtml(buttonLabel)}</button></div><article class="resume-paper layout-${selected}">${renderMarkdown(content,selected,{photo})}</article></body></html>`;
 }

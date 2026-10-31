@@ -36,8 +36,10 @@ files['/resume-review-tips.js']='resume-review-tips.js';
 files['/job-evidence-view.js']='job-evidence-view.js';
 files['/sync-progress.js']='sync-progress.js';
 files['/resume.css']='resume.css';
+files['/fonts/dm-sans-latin-wght-normal.woff2']='fonts/dm-sans-latin-wght-normal.woff2';
+files['/fonts/dm-sans-latin-ext-wght-normal.woff2']='fonts/dm-sans-latin-ext-wght-normal.woff2';
 for(const asset of Object.values(COMPANY_LOGOS))files[asset]=asset.slice(1);
-const types={'.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml'};
+const types={'.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.woff2':'font/woff2'};
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
 const string=(v,max,required=false)=>{if(typeof v!=='string'||v.length>max||(required&&!v.trim()))fail('输入字段为空或超过长度限制。');return v.trim();};
 const enumeration=(v,values)=>values.includes(v)?v:fail('选项无效。');
@@ -74,22 +76,36 @@ function searchPreferences(input,source={}){
   return {...location,jobPreferences:prefs};
 }
 export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_ALLOW_CURSOR==='1',generator=generateWithCursor,providers=new Providers(),jobFetcher=fetchJobs,cursorConnection=new CursorConnection()}={}) {
-  if(process.env.FMJ_DEPLOYMENT&&process.env.FMJ_DEPLOYMENT!=='local')throw new Error('当前版本仅支持单用户本机运行；云部署需要独立账户、额度和密钥隔离服务。');
+  const deployment=process.env.FMJ_DEPLOYMENT||'local';
+  if(!['local','campus'].includes(deployment))throw new Error('FMJ_DEPLOYMENT 只支持 local（单用户本机）或 campus（SuperUnknown 统一入口网关之后）。');
+  // campus: reachable only through the SuperUnknown gateway, which checks the session and forwards X-User-*.
+  // Personal data is not separated per user yet (SP-110), so every signed-in user shares this workspace.
+  const campus=deployment==='campus';
   const savedCursor=store.get('config','cursorIntegration');
   if(savedCursor)cursorEnabled=savedCursor.enabled===true;
+  // The server's own Cursor login must never be shared with other users.
+  if(campus)cursorEnabled=false;
   const setCursorEnabled=enabled=>{const current=store.get('config','cursorIntegration');if(current)store.config('cursorIntegration',{enabled},current.revision);else store.db.prepare('INSERT INTO config(key,data) VALUES(?,?)').run('cursorIntegration',JSON.stringify({enabled}));cursorEnabled=enabled;};
   const token=randomBytes(32).toString('hex');let busy=false,syncing=false;const lastSync=new Map();
   let syncProgress={status:'idle',completed:0,total:0};
-  const snapshot=()=>({...store.snapshot(),token,syncing,providers:providers.list(),capabilities:{cursor:cursorEnabled,platformCredits:false}});
+  const snapshot=()=>({...store.snapshot(),token,syncing,providers:providers.list(),capabilities:{cursor:cursorEnabled,platformCredits:false,deployment}});
   const json=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(data));};
   const server=http.createServer(async(req,res)=>{
     try {
-      const port=res.socket.localPort,hosts=new Set([`127.0.0.1:${port}`,`localhost:${port}`]);
-      if(!hosts.has(req.headers.host))return json(res,403,{error:'只允许本地访问。'});
-      if(req.headers.origin&&!new Set([...hosts].map(h=>`http://${h}`)).has(req.headers.origin))return json(res,403,{error:'不接受跨站请求。'});
-      if(req.headers['sec-fetch-site']==='cross-site')return json(res,403,{error:'不接受跨站请求。'});
       const url=new URL(req.url,'http://localhost'),p=url.pathname;
-      if(p==='/api/health'&&req.method==='GET')return json(res,200,{app:'foundmyjob',mode:'local',database:'sqlite'});
+      if(campus){
+        // The gateway rewrites Host to the public address and always sets X-User-Id after a successful session check.
+        // /api/health stays open for the container health check.
+        if(!req.headers['x-user-id']&&p!=='/api/health')return json(res,401,{error:'请从 SuperUnknown 统一入口登录后访问。'});
+        const origin=`${req.headers['x-forwarded-proto']==='https'?'https':'http'}://${req.headers.host}`;
+        if(req.headers.origin&&req.headers.origin!==origin)return json(res,403,{error:'不接受跨站请求。'});
+      }else{
+        const port=res.socket.localPort,hosts=new Set([`127.0.0.1:${port}`,`localhost:${port}`]);
+        if(!hosts.has(req.headers.host))return json(res,403,{error:'只允许本地访问。'});
+        if(req.headers.origin&&!new Set([...hosts].map(h=>`http://${h}`)).has(req.headers.origin))return json(res,403,{error:'不接受跨站请求。'});
+      }
+      if(req.headers['sec-fetch-site']==='cross-site')return json(res,403,{error:'不接受跨站请求。'});
+      if(p==='/api/health'&&req.method==='GET')return json(res,200,{app:'foundmyjob',mode:deployment,database:'sqlite'});
       if(p==='/api/resume-templates'&&req.method==='GET')return json(res,200,{templates:RESUME_LAYOUTS.map(layout=>({...layout,available:canUseResumeLayout(layout.id,store.get('config','templateEntitlements')?.keys||[])})),billingEnabled:false});
       if(p==='/api/state'&&req.method==='GET')return json(res,200,snapshot());
       if(p==='/api/jobs/sync/status'&&req.method==='GET')return json(res,200,syncProgress);
@@ -116,6 +132,8 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
         if(p==='/api/self-hosted/test'){
           if(Object.keys(input).length)fail('连接检测不接受模型地址、密钥或个人资料。');
           return json(res,200,await providers.selfHosted.testConnection());
+        }else if(campus&&p.startsWith('/api/cursor/')&&p!=='/api/cursor/disable'){
+          fail('统一入口部署不提供本机 Cursor，请在「AI 与数据设置」使用自带 API Key。',403);
         }else if(p==='/api/cursor/connect'){
           if(input.consent!==true)fail('请确认连接你自己的本机 Cursor。');
           const status=await cursorConnection.status();if(!status.installed)fail(status.message);
@@ -261,7 +279,7 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
       if(p.startsWith('/api/'))fail('接口不存在。',404);
       if(!['GET','HEAD'].includes(req.method))fail('Method not allowed',405);
       const file=files[p];if(!file)fail('Not found',404);
-      const content=await readFile(path.join(root,file));res.writeHead(200,{'Content-Type':types[path.extname(file)],'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cache-Control':'no-cache','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"});res.end(req.method==='HEAD'?undefined:content);
+      const content=await readFile(path.join(root,file));res.writeHead(200,{'Content-Type':types[path.extname(file)],'X-Content-Type-Options':'nosniff','Referrer-Policy':'no-referrer','Cache-Control':'no-cache','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"});res.end(req.method==='HEAD'?undefined:content);
     }catch(error){if(!res.headersSent)json(res,error.status||400,{error:error.message?.includes('SQLITE')?'数据库操作未完成，请重试。':error.message||'服务暂时不可用。'});else res.end();}
   });
   // Recover only after binding succeeds; a second launch on an occupied port must not interrupt tasks.
@@ -271,6 +289,8 @@ export function createServer({store=new Store(),cursorEnabled=process.env.FMJ_AL
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   const port=Number(process.env.PORT||4173),server=createServer();
+  // campus listens on every interface of its container; only the gateway can reach it.
+  const host=process.env.FMJ_DEPLOYMENT==='campus'?'0.0.0.0':'127.0.0.1';
   server.on('error',error=>{console.error(error.code==='EADDRINUSE'?`端口 ${port} 已被占用。`:'无法启动本地服务。');process.exitCode=1;});
-  server.listen(port,'127.0.0.1',()=>console.log(`FoundMyJob: http://127.0.0.1:${port}\nSQLite 已连接；仅接受本机连接。`));
+  server.listen(port,host,()=>console.log(host==='127.0.0.1'?`FoundMyJob: http://127.0.0.1:${port}\nSQLite 已连接；仅接受本机连接。`:`FoundMyJob (campus): ${host}:${port}\nSQLite 已连接；只接受 SuperUnknown 统一入口转发的请求。`));
 }

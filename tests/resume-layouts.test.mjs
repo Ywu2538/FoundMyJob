@@ -20,7 +20,8 @@ test('twelve layouts offer distinct choices and print the rendered document safe
   const html=resumePrintDocumentHtml({title:'<candidate>',content:'# Candidate\n## Skills\n- SQL\n## Work\n### Role\n**Result**',layout:'sidebar',buttonLabel:'Print'},renderResumeMarkdown);
   assert.match(html,/layout-sidebar/);
   assert.match(html,/resume-sidebar/);
-  assert.match(html,/href="\/resume.css"/);
+  // Relative, so the print window (about:blank, inheriting the opener's base URL) also works under /jobs/.
+  assert.match(html,/href="resume.css"/);
   assert.match(html,/<h3>Role<\/h3>/);
   assert.match(html,/<strong>Result<\/strong>/);
   assert.doesNotMatch(html,/<candidate>/);

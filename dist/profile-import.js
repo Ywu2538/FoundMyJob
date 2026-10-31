@@ -9,7 +9,7 @@ export async function previewDocumentImport(file,{token,profileLabel,showModal,c
   const dialog=document.querySelector('#modal-root dialog'),controller=new AbortController();
   dialog.addEventListener('close',()=>controller.abort(),{once:true});
   try{
-    const response=await fetch('/api/profiles/import-document?filename='+encodeURIComponent(file.name),{
+    const response=await fetch('api/profiles/import-document?filename='+encodeURIComponent(file.name),{
       method:'POST',headers:{'Content-Type':'application/octet-stream','X-FMJ-Token':token},body:file,signal:controller.signal,
     });
     const result=await response.json();if(!response.ok)throw new Error(tr(result.error||'文件解析失败，请另存为新的 Word 或 PDF 文件后重试。'));
