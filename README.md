@@ -15,7 +15,15 @@ Windows 可双击 `Start-FoundMyJob.cmd`。它会独立在后台启动服务并�
 
 `npm start` 仍是前台运行方式，需要保留终端，Ctrl+C 停止。后台日志在 `.runtime/background-server.log`。SQLite 在部分 Node 版本显示 ExperimentalWarning，不影响当前运行。
 
-本版本需要后端，不能只把 `dist/` 上传到静态托管。仅监听 `127.0.0.1`，用于**单用户本机**；不支持公开暴露、反向代理或多人共享实例。
+本版本需要后端，不能只把 `dist/` 上传到静态托管。默认（`FMJ_DEPLOYMENT=local`）仅监听 `127.0.0.1`，用于**单用户本机**；不支持公开暴露或多人共享实例。
+
+### 统一入口部署（`FMJ_DEPLOYMENT=campus`）
+
+挂在 SuperUnknown 统一入口网关之后，地址为 `/jobs/`（网关转发时去掉前缀，前端资源和接口都用相对路径）。此模式下：
+
+- 监听 `0.0.0.0`，只应暴露在 Docker 内网，由网关先检查统一账号登录；没有 `X-User-Id` 请求头的请求一律返回 401（`/api/health` 除外）。
+- 跨站校验按网关转发的 Host / `X-Forwarded-Proto` 判断，本机 Cursor 不可用（服务器上的 Cursor 登录不能共享），生成简历请用自带 API Key 或自部署模型。
+- **个人数据尚未按用户隔离**（SP-110 之前所有登录用户共用一份求职空间），仅适合演示或单人使用。
 
 ## 使用流程
 

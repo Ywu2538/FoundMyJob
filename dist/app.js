@@ -52,7 +52,8 @@ const routes={dashboard:'工作台',jobs:'发现岗位',resumes:'我的简历',t
 const ui={profileId:null,drafts:{},recordProfileId:'',route:routes[location.hash.slice(1)]?location.hash.slice(1):'dashboard',...defaultJobFilters(),companiesOpen:false,generating:false,modal:null,mobileMenu:false,models:[],provider:'cursor',syncing:false,syncProgress:null,syncMonitor:null};
 let currentJobResults=[],jobsObserver,syncDockCleanup,avatarSequence=0;
 async function api(path,body) {
- const response=await fetch(path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(state?.token?{'X-FMJ-Token':state.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+ // Resolve '/api/...' against the page, so it also works under /jobs/ behind the gateway.
+ const response=await fetch(path.replace(/^\//,''),{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json',...(state?.token?{'X-FMJ-Token':state.token}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
  let result;try{result=await response.json();}catch{throw new Error(tr('本地后端未响应，请重新运行 Start-FoundMyJob.cmd。'));}
  if(!response.ok)throw new Error(result.error||tr('请求失败。'));return result;
 }
@@ -130,7 +131,7 @@ function accountPage(){
 }
 function sidebar() {
   return `<aside class="sidebar ${ui.mobileMenu?'is-open':''}">
-    <a class="brand" href="#dashboard"><img src="/favicon.svg" alt=""/><span>FoundMyJob<span class="brand-dot">.</span></span></a>
+    <a class="brand" href="#dashboard"><img src="favicon.svg" alt=""/><span>FoundMyJob<span class="brand-dot">.</span></span></a>
     <div class="sidebar-navigation"><div class="nav-group"><div class="nav-caption">${tr("求职旅程")}</div>
     <nav aria-label="${tr("主导航")}">${[['dashboard','grid'],['jobs','search'],['resumes','file'],['tracker','briefcase']].map(([route,ico])=>navItem(route,ico)).join('')}</nav>
     </div><div class="nav-group"><div class="nav-caption">${tr("个人中心")}</div>
@@ -163,7 +164,7 @@ function continueDiscovery(groups) {
 function companyLogo(item,mini=false) {
  const slug=item.companyId||item.slug||String(item.source||'').split(':')[1]||state.sources.find(s=>s.company===item.company)?.slug;
  const url=COMPANY_LOGOS[slug];
- return '<span class="company-logo'+(mini?' mini':'')+(url?' brand-logo':'')+'">'+(url?'<img src="'+e(url)+'" alt="" decoding="async" loading="lazy"/>':e(item.logo||item.company?.slice(0,2)||tr('企')))+'</span>';
+ return '<span class="company-logo'+(mini?' mini':'')+(url?' brand-logo':'')+'">'+(url?'<img src="'+e(url.replace(/^\//,''))+'" alt="" decoding="async" loading="lazy"/>':e(item.logo||item.company?.slice(0,2)||tr('企')))+'</span>';
 }
 function companyCountLabel(source,total) {
  if(total)return total+tr(' 条岗位');
